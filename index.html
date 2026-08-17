@@ -641,7 +641,7 @@
     let students=[];
     let attendance={};
     let notifications=[];
-    let interviews=[]; // لتخزين المقابلات
+    let interviews=[];
     let previewData=[];
     let currentPage='dashboard';
     let currentWarningTab='all';
@@ -649,7 +649,9 @@
     let sortConfig={column:null,direction:'asc'};
     let currentCardStudentId=null;
     let reportSortConfig = {column:null, direction:'asc'};
-    let interviewSortConfig = {column:'date', direction:'desc'}; // للمقابلات
+    let interviewSortConfig = {column:'date', direction:'desc'};
+    let userSortConfig = {column:null, direction:'asc'};  // متغير ترتيب المستخدمين
+    let warningSortConfig = {column:null, direction:'asc'};
     
     // ======== دوال Firebase ========
     async function loginWithFirebase() {
@@ -749,7 +751,6 @@
                 notifications = [];
             }
             
-            // تحميل المقابلات
             const interviewRef = ref(db, 'interviews');
             const interviewSnap = await get(interviewRef);
             if (interviewSnap.exists()) {
@@ -813,7 +814,6 @@
             }
         });
         
-        // استماع لتغييرات المقابلات
         const interviewRef = ref(db, 'interviews');
         onValue(interviewRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -844,7 +844,6 @@
             notifications.forEach(n => { notifObj[n.id] = n; });
             await set(notifRef, notifObj);
             
-            // حفظ المقابلات
             const interviewRef = ref(db, 'interviews');
             const interviewObj = {};
             interviews.forEach(i => { interviewObj[i.id] = i; });
@@ -873,6 +872,24 @@
         return {};
     }
     
+    // دالة الترتيب للمستخدمين
+    function sortUsersTable(column) {
+        if (userSortConfig.column === column) {
+            userSortConfig.direction = userSortConfig.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            userSortConfig.column = column;
+            userSortConfig.direction = 'asc';
+        }
+        renderUsersTable();
+    }
+    
+    function getUserSortIcon(column) {
+        if (userSortConfig.column !== column) return '<i class="fas fa-sort sort-icon"></i>';
+        return userSortConfig.direction === 'asc' ?
+            '<i class="fas fa-sort-up sort-icon" style="color:var(--primary)"></i>' :
+            '<i class="fas fa-sort-down sort-icon" style="color:var(--primary)"></i>';
+    }
+    
     async function renderUsersTable() {
         if (currentUser.role !== 'super') {
             const tbody = document.getElementById('usersTableBody');
@@ -881,17 +898,38 @@
             }
             return;
         }
-        
+
         const users = await loadUsers();
         const tbody = document.getElementById('usersTableBody');
         if (!tbody) return;
-        
+
+        let usersArray = Object.entries(users).map(([uid, user]) => ({ uid, ...user }));
+
         if (Object.keys(users).length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-light)">لا يوجد مستخدمين</td></tr>';
             return;
         }
-        
-        tbody.innerHTML = Object.entries(users).map(([uid, user]) => {
+
+        // تطبيق الترتيب
+        if (userSortConfig.column) {
+            usersArray.sort((a, b) => {
+                let aVal, bVal;
+                switch (userSortConfig.column) {
+                    case 'email': aVal = a.email || ''; bVal = b.email || ''; break;
+                    case 'name': aVal = a.name || ''; bVal = b.name || ''; break;
+                    case 'role': aVal = (ROLES[a.role]?.label || a.role) || ''; bVal = (ROLES[b.role]?.label || b.role) || ''; break;
+                    case 'admin': aVal = a.admin || ''; bVal = b.admin || ''; break;
+                    case 'school': aVal = a.school || ''; bVal = b.school || ''; break;
+                    default: aVal = a.uid; bVal = b.uid;
+                }
+                if (typeof aVal === 'string') {
+                    return userSortConfig.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                }
+                return userSortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+            });
+        }
+
+        tbody.innerHTML = usersArray.map(user => {
             const roleLabel = ROLES[user.role]?.label || user.role;
             const roleIcon = ROLES[user.role]?.icon || 'fa-user';
             return `
@@ -902,10 +940,10 @@
                     <td>${user.admin || '-'}</td>
                     <td>${user.school ? (user.school.length > 20 ? user.school.substring(0,20)+'...' : user.school) : '-'}</td>
                     <td>
-                        <button class="btn btn-sm btn-primary" onclick="editUser('${uid}')" title="تعديل">
+                        <button class="btn btn-sm btn-primary" onclick="editUser('${user.uid}')" title="تعديل">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteUser('${uid}')" title="حذف">
+                        <button class="btn btn-sm btn-danger" onclick="deleteUser('${user.uid}')" title="حذف">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
@@ -1169,7 +1207,6 @@
             items.push({page: 'attendance', icon: 'fa-clipboard-check', label: 'تسجيل الغياب'});
         }
         
-        // صفحة المقابلات للأخصائي الاجتماعي فقط
         if (isSocial && perms.includes('manage_interviews')) {
             items.push({page: 'interviews', icon: 'fa-handshake', label: 'مقابلات ولي الأمر'});
         }
@@ -1366,7 +1403,6 @@
         if(!currentUser) return [];
         let list = [...interviews];
         if(currentUser.role === 'social'){
-            // تصفية حسب المدرسة والإدارة الخاصة بالأخصائي
             list = list.filter(i => i.studentAdmin === currentUser.admin && i.studentSchool === currentUser.school);
         } else if(currentUser.role === 'admin'){
             list = list.filter(i => i.studentAdmin === currentUser.admin);
@@ -1374,7 +1410,6 @@
         return list;
     }
     
-    // دالة الترتيب للمقابلات
     function sortInterviewTable(column) {
         if (interviewSortConfig.column === column) {
             interviewSortConfig.direction = interviewSortConfig.direction === 'asc' ? 'desc' : 'asc';
@@ -1485,7 +1520,6 @@
         let dateFrom = document.getElementById('interviewDateFrom')?.value || '';
         let dateTo = document.getElementById('interviewDateTo')?.value || '';
         
-        // تصفية
         list = list.filter(i => {
             if(search){
                 let studentName = i.studentName || '';
@@ -1499,7 +1533,6 @@
             return true;
         });
         
-        // ترتيب حسب الإعداد
         if (interviewSortConfig.column) {
             list.sort((a,b) => {
                 let aVal, bVal;
@@ -1571,13 +1604,11 @@
             return;
         }
         
-        // تعبئة قائمة الطلاب
         let studentSelect = document.getElementById('interviewStudent');
         let fs = getFilteredStudents();
         studentSelect.innerHTML = '<option value="">اختر الطالب</option>' + 
             fs.map(s => `<option value="${s.id}">${s.fullName || s.firstName + ' ' + s.lastName} (${s.code})</option>`).join('');
         
-        // تعيين التاريخ الحالي
         document.getElementById('interviewDate').value = new Date().toISOString().split('T')[0];
         document.getElementById('interviewId').value = interviewId || '';
         document.getElementById('interviewNotes').value = '';
@@ -1619,7 +1650,6 @@
         let fullName = student.fullName || student.firstName + ' ' + student.lastName;
         
         if(id){
-            // تعديل
             let idx = interviews.findIndex(i => i.id == id);
             if(idx >= 0){
                 interviews[idx] = {
@@ -1640,7 +1670,6 @@
                 showAlert('تم تحديث المقابلة بنجاح', 'success');
             }
         } else {
-            // إضافة جديدة
             let newId = Date.now() + Math.floor(Math.random() * 1000);
             interviews.push({
                 id: newId,
@@ -1673,7 +1702,6 @@
         showAlert('تم حذف المقابلة', 'info');
     }
     
-    // طباعة جدول المقابلات
     function printInterviewsTable() {
         let table = document.getElementById('interviewsTable');
         if(!table) { showAlert('لا توجد بيانات للطباعة', 'warning'); return; }
@@ -1725,7 +1753,6 @@
         setTimeout(()=>{ try{ printWindow.focus(); printWindow.print(); }catch(e){} }, 600);
     }
     
-    // تصدير المقابلات إلى Excel
     function exportInterviewsToExcel() {
         let list = getFilteredInterviews();
         let search = document.getElementById('interviewSearch')?.value?.toLowerCase() || '';
@@ -1824,11 +1851,11 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>البريد الإلكتروني</th>
-                                    <th>الاسم</th>
-                                    <th>الدور</th>
-                                    <th>الإدارة</th>
-                                    <th>المدرسة</th>
+                                    <th onclick="sortUsersTable('email')">البريد الإلكتروني ${getUserSortIcon('email')}</th>
+                                    <th onclick="sortUsersTable('name')">الاسم ${getUserSortIcon('name')}</th>
+                                    <th onclick="sortUsersTable('role')">الدور ${getUserSortIcon('role')}</th>
+                                    <th onclick="sortUsersTable('admin')">الإدارة ${getUserSortIcon('admin')}</th>
+                                    <th onclick="sortUsersTable('school')">المدرسة ${getUserSortIcon('school')}</th>
                                     <th>الإجراءات</th>
                                 </tr>
                             </thead>
@@ -1930,6 +1957,23 @@
     function getReportSortIcon(column) {
         if (reportSortConfig.column !== column) return '<i class="fas fa-sort sort-icon"></i>';
         return reportSortConfig.direction === 'asc' ?
+            '<i class="fas fa-sort-up sort-icon" style="color:var(--primary)"></i>' :
+            '<i class="fas fa-sort-down sort-icon" style="color:var(--primary)"></i>';
+    }
+    
+    function sortWarningTable(column) {
+        if (warningSortConfig.column === column) {
+            warningSortConfig.direction = warningSortConfig.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            warningSortConfig.column = column;
+            warningSortConfig.direction = 'asc';
+        }
+        renderWarningsTable();
+    }
+    
+    function getWarningSortIcon(column) {
+        if (warningSortConfig.column !== column) return '<i class="fas fa-sort sort-icon"></i>';
+        return warningSortConfig.direction === 'asc' ?
             '<i class="fas fa-sort-up sort-icon" style="color:var(--primary)"></i>' :
             '<i class="fas fa-sort-down sort-icon" style="color:var(--primary)"></i>';
     }
@@ -2365,7 +2409,6 @@
         setTimeout(()=>{ try{ win.focus(); win.print(); }catch(e){} }, 600);
     }
     
-    // دالة لتحديث إشعار معين إلى مقروء
     function markNotificationAsRead(studentId) {
         let found = false;
         notifications.forEach(n => {
@@ -2377,11 +2420,9 @@
         if (found) {
             saveData();
             updateNotificationBadge();
-            // تحديث صفحة الإشعارات إذا كانت مفتوحة
             if (currentPage === 'notifications') {
                 applyNotificationFilters();
             }
-            // تحديث صفحة الإنذارات إذا كانت مفتوحة
             if (currentPage === 'warnings') {
                 renderWarningsTable();
             }
@@ -2396,7 +2437,6 @@
         let w = warnings.find(x=>x.id===studentId) || {level:0};
         if(w.level===0){ showAlert('لا يوجد إنذار مسجل لهذا الطالب حالياً','warning'); return; }
         
-        // تحديث الإشعارات المرتبطة بهذا الطالب إلى مقروءة
         let hasUpdated = markNotificationAsRead(studentId);
         if (hasUpdated) {
             showAlert('✅ تم تحديث الإشعارات المرتبطة', 'info');
@@ -2416,7 +2456,6 @@
         }
         if(list.length===0){ showAlert('لا توجد إنذارات مطابقة لإعداد خطابات لها','warning'); return; }
         
-        // تحديث جميع الإشعارات المرتبطة بهؤلاء الطلاب إلى مقروءة
         let updatedCount = 0;
         list.forEach(w => {
             if (markNotificationAsRead(w.id)) updatedCount++;
@@ -2463,25 +2502,6 @@
         
         c.innerHTML=`<div class="top-bar"><div class="page-title"><h1>الإنذارات</h1>${getBreadcrumb()}</div><div class="btn-group">${canExport?`<button class="btn btn-success btn-sm" onclick="exportWarningsToExcel()"><i class="fas fa-file-excel"></i> تصدير القائمة</button>`:''}${canPrintAll?`<button class="btn btn-primary btn-sm" onclick="printAllWarningLetters()"><i class="fas fa-file-signature"></i> طباعة كل الخطابات</button>`:''}</div></div><div class="warning-banner"><i class="fas fa-info-circle"></i><div class="warning-banner-text"><h4>معايير الإنذار (محسوبة آلياً فور تسجيل الغياب)</h4><p>إنذار أول: 5 متصلة أو 7 منفصلة | ثاني: 10 متصلة أو 14 منفصلة | ثالث: 12 متصلة أو 21 منفصلة | فصل: 15 متصلة أو 30 منفصلة</p></div></div><div class="tabs"><button class="tab active" onclick="showWarningTab('all',event)">الكل</button><button class="tab" onclick="showWarningTab('1',event)">أول</button><button class="tab" onclick="showWarningTab('2',event)">ثاني</button><button class="tab" onclick="showWarningTab('3',event)">ثالث</button><button class="tab" onclick="showWarningTab('4',event)">فصل</button></div><div class="content-card"><div class="card-body" style="padding:0"><div class="table-wrap"><table class="data-table"><thead><tr><th onclick="sortWarningTable('name')">الطالب ${getWarningSortIcon('name')}</th><th onclick="sortWarningTable('school')">المدرسة ${getWarningSortIcon('school')}</th><th onclick="sortWarningTable('grade')">الصف ${getWarningSortIcon('grade')}</th><th onclick="sortWarningTable('specialty')">التخصص ${getWarningSortIcon('specialty')}</th><th onclick="sortWarningTable('consecutive')">متصلة ${getWarningSortIcon('consecutive')}</th><th onclick="sortWarningTable('total')">منفصلة ${getWarningSortIcon('total')}</th><th onclick="sortWarningTable('level')">الإنذار ${getWarningSortIcon('level')}</th><th>الإجراءات</th></tr></thead><tbody id="warningsTableBody"></tbody></table></div></div></div>`;
         renderWarningsTable();
-    }
-    
-    let warningSortConfig = {column:null, direction:'asc'};
-    
-    function sortWarningTable(column) {
-        if (warningSortConfig.column === column) {
-            warningSortConfig.direction = warningSortConfig.direction === 'asc' ? 'desc' : 'asc';
-        } else {
-            warningSortConfig.column = column;
-            warningSortConfig.direction = 'asc';
-        }
-        renderWarningsTable();
-    }
-    
-    function getWarningSortIcon(column) {
-        if (warningSortConfig.column !== column) return '<i class="fas fa-sort sort-icon"></i>';
-        return warningSortConfig.direction === 'asc' ?
-            '<i class="fas fa-sort-up sort-icon" style="color:var(--primary)"></i>' :
-            '<i class="fas fa-sort-down sort-icon" style="color:var(--primary)"></i>';
     }
     
     function showWarningTab(tab, event){
