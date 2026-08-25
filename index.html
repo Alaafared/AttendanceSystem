@@ -315,7 +315,32 @@
         
         /* ===== Print Styles ===== */
         .print-only{display:none}
-        @media print{.print-only{display:block!important}body *{visibility:hidden}.print-area,.print-area *{visibility:visible}.print-area{position:fixed;top:0;right:0;width:100%;padding:2rem;background:white;z-index:9999}.sidebar,.top-bar,.btn,.alert-container,.no-print{display:none!important}.main-content{margin:0;padding:0}}
+        @media print{
+            .print-only{display:block!important}
+            body *{visibility:hidden}
+            .print-area,.print-area *{visibility:visible}
+            .print-area{
+                position:absolute;
+                left:0;
+                top:0;
+                width:100%;
+                padding:1rem;
+                background:white;
+                z-index:9999;
+                overflow:visible;
+                height:auto;
+                min-height:100%;
+            }
+            .sidebar,.top-bar,.btn,.alert-container,.no-print,.menu-toggle,.sidebar-overlay,.nav-menu,.sidebar-footer,.user-info-sidebar,.sidebar-header{display:none!important}
+            .main-content{margin:0!important;padding:0!important;width:100%!important}
+            .data-table{page-break-inside:auto}
+            .data-table tr{page-break-inside:avoid;page-break-after:auto}
+            .data-table thead{display:table-header-group}
+            .data-table tfoot{display:table-footer-group}
+            .content-card{box-shadow:none;border:none;page-break-inside:auto}
+            .table-wrap{overflow:visible!important;max-height:none!important}
+            .card-header,.card-body{page-break-inside:auto}
+        }
         
         /* ===== Responsive ===== */
         @media(max-width:1024px){
@@ -427,6 +452,10 @@
         </div>
         <ul class="nav-menu" id="navMenu"></ul>
         <div class="sidebar-footer">
+            <div style="margin-bottom:.5rem;padding:.4rem .5rem;background:var(--bg);border-radius:8px;font-size:.7rem">
+                <div style="color:var(--text-light);margin-bottom:.2rem"><i class="fas fa-calendar-alt"></i> العام الدراسي</div>
+                <div style="font-weight:700;color:var(--primary)" id="currentYearBadge">2025-2026</div>
+            </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;flex-wrap:wrap;gap:.3rem">
                 <span class="connection-status online" id="connectionStatus"><i class="fas fa-wifi"></i> متصل</span>
                 <button class="btn btn-outline btn-sm" onclick="logout()"><i class="fas fa-sign-out-alt"></i> خروج</button>
@@ -653,6 +682,149 @@
     let userSortConfig = {column:null, direction:'asc'};  // متغير ترتيب المستخدمين
     let warningSortConfig = {column:null, direction:'asc'};
     
+    // ======== السنوات الدراسية ========
+    const DEFAULT_YEAR = '2025-2026';
+    let currentYear = DEFAULT_YEAR;
+    let availableYears = [DEFAULT_YEAR];
+    let yearListenersAttached = false;
+    
+    function yearPath(subPath) {
+        return `academicYears/${currentYear}/${subPath}`;
+    }
+    
+    async function ensureYearsInitialized() {
+        try {
+            const listRef = ref(db, 'academicYearsList');
+            const listSnap = await get(listRef);
+            if (listSnap.exists()) {
+                const data = listSnap.val();
+                availableYears = Array.isArray(data) ? data : Object.values(data);
+                if (!availableYears.includes(DEFAULT_YEAR)) availableYears.unshift(DEFAULT_YEAR);
+            } else {
+                // ترحيل البيانات القديمة إن وُجدت إلى السنة الافتراضية
+                availableYears = [DEFAULT_YEAR];
+                await set(listRef, availableYears);
+                
+                const oldStudents = await get(ref(db, 'students'));
+                const oldAttendance = await get(ref(db, 'attendance'));
+                const oldNotifs = await get(ref(db, 'notifications'));
+                const oldInterviews = await get(ref(db, 'interviews'));
+                
+                if (oldStudents.exists() || oldAttendance.exists() || oldNotifs.exists() || oldInterviews.exists()) {
+                    if (oldStudents.exists()) await set(ref(db, yearPath('students')), oldStudents.val());
+                    if (oldAttendance.exists()) await set(ref(db, yearPath('attendance')), oldAttendance.val());
+                    if (oldNotifs.exists()) await set(ref(db, yearPath('notifications')), oldNotifs.val());
+                    if (oldInterviews.exists()) await set(ref(db, yearPath('interviews')), oldInterviews.val());
+                    console.log('✅ تم ترحيل البيانات القديمة إلى السنة الدراسية ' + DEFAULT_YEAR);
+                }
+            }
+            
+            // التأكد من وجود عقدة السنة الحالية
+            const yearMetaRef = ref(db, `academicYears/${currentYear}/meta`);
+            const yearMetaSnap = await get(yearMetaRef);
+            if (!yearMetaSnap.exists()) {
+                await set(yearMetaRef, {
+                    name: currentYear,
+                    createdAt: new Date().toISOString(),
+                    label: 'العام الدراسي ' + currentYear
+                });
+            }
+            
+            // استعادة السنة المختارة سابقاً إن وُجدت
+            const savedYear = localStorage.getItem('selectedAcademicYear');
+            if (savedYear && availableYears.includes(savedYear)) {
+                currentYear = savedYear;
+            } else {
+                currentYear = availableYears[availableYears.length - 1] || DEFAULT_YEAR;
+            }
+        } catch (e) {
+            console.error('خطأ في تهيئة السنوات:', e);
+            availableYears = [DEFAULT_YEAR];
+            currentYear = DEFAULT_YEAR;
+        }
+    }
+    
+    async function createNewAcademicYear(newYear) {
+        if (!newYear || !/^\d{4}-\d{4}$/.test(newYear)) {
+            showAlert('صيغة السنة غير صحيحة. استخدم مثل: 2026-2027', 'warning');
+            return false;
+        }
+        if (availableYears.includes(newYear)) {
+            showAlert('هذه السنة الدراسية موجودة بالفعل', 'warning');
+            return false;
+        }
+        try {
+            availableYears.push(newYear);
+            availableYears.sort();
+            await set(ref(db, 'academicYearsList'), availableYears);
+            await set(ref(db, `academicYears/${newYear}/meta`), {
+                name: newYear,
+                createdAt: new Date().toISOString(),
+                label: 'العام الدراسي ' + newYear,
+                createdBy: currentUser?.name || 'system'
+            });
+            // إنشاء عقد فارغة للبيانات
+            await set(ref(db, `academicYears/${newYear}/students`), {});
+            await set(ref(db, `academicYears/${newYear}/attendance`), {});
+            await set(ref(db, `academicYears/${newYear}/notifications`), {});
+            await set(ref(db, `academicYears/${newYear}/interviews`), {});
+            showAlert('✅ تم إنشاء السنة الدراسية ' + newYear + ' بنجاح (البيانات القديمة محفوظة)', 'success');
+            return true;
+        } catch (e) {
+            console.error(e);
+            showAlert('خطأ في إنشاء السنة: ' + e.message, 'danger');
+            return false;
+        }
+    }
+    
+    async function switchAcademicYear(year) {
+        if (!availableYears.includes(year)) {
+            showAlert('السنة الدراسية غير موجودة', 'danger');
+            return;
+        }
+        if (year === currentYear) return;
+        currentYear = year;
+        localStorage.setItem('selectedAcademicYear', year);
+        students = [];
+        attendance = {};
+        notifications = [];
+        interviews = [];
+        yearListenersAttached = false;
+        showAlert('جاري تحميل بيانات العام ' + year + '...', 'info');
+        await loadAllData();
+        if (currentUser) {
+            refreshCurrentPage();
+            updateSidebarYearBadge();
+        }
+        showAlert('تم التبديل إلى العام الدراسي ' + year, 'success');
+    }
+    
+    function updateSidebarYearBadge() {
+        const el = document.getElementById('currentYearBadge');
+        if (el) el.textContent = currentYear;
+    }
+    
+    function openCreateYearModal() {
+        if (currentUser?.role !== 'super') {
+            showAlert('صلاحية إنشاء سنة دراسية جديدة لمسؤول المديرية فقط', 'danger');
+            return;
+        }
+        const last = availableYears[availableYears.length - 1] || DEFAULT_YEAR;
+        const parts = last.split('-');
+        const nextStart = parseInt(parts[1], 10);
+        const suggested = nextStart + '-' + (nextStart + 1);
+        const input = prompt('أدخل السنة الدراسية الجديدة (مثال: ' + suggested + '):', suggested);
+        if (input === null) return;
+        const year = input.trim();
+        createNewAcademicYear(year).then(ok => {
+            if (ok) {
+                // تحديث واجهة السنوات إن كانت مفتوحة
+                if (currentPage === 'years') renderYearsPage(document.getElementById('mainContent'));
+                updateSidebarYearBadge();
+            }
+        });
+    }
+    
     // ======== دوال Firebase ========
     async function loginWithFirebase() {
         const email = document.getElementById('loginEmail').value.trim();
@@ -725,37 +897,39 @@
     
     async function loadAllData() {
         try {
-            const studentsRef = ref(db, 'students');
+            await ensureYearsInitialized();
+            
+            const studentsRef = ref(db, yearPath('students'));
             const studentsSnap = await get(studentsRef);
             if (studentsSnap.exists()) {
                 const data = studentsSnap.val();
-                students = Object.values(data);
+                students = Object.values(data || {}).filter(Boolean);
             } else {
                 students = [];
             }
             
-            const attendanceRef = ref(db, 'attendance');
+            const attendanceRef = ref(db, yearPath('attendance'));
             const attendanceSnap = await get(attendanceRef);
             if (attendanceSnap.exists()) {
-                attendance = attendanceSnap.val();
+                attendance = attendanceSnap.val() || {};
             } else {
                 attendance = {};
             }
             
-            const notifRef = ref(db, 'notifications');
+            const notifRef = ref(db, yearPath('notifications'));
             const notifSnap = await get(notifRef);
             if (notifSnap.exists()) {
                 const data = notifSnap.val();
-                notifications = Object.values(data);
+                notifications = Object.values(data || {}).filter(Boolean);
             } else {
                 notifications = [];
             }
             
-            const interviewRef = ref(db, 'interviews');
+            const interviewRef = ref(db, yearPath('interviews'));
             const interviewSnap = await get(interviewRef);
             if (interviewSnap.exists()) {
                 const data = interviewSnap.val();
-                interviews = Object.values(data);
+                interviews = Object.values(data || {}).filter(Boolean);
             } else {
                 interviews = [];
             }
@@ -765,6 +939,7 @@
             isFirebaseReady = true;
             document.getElementById('connectionStatus').className = 'connection-status online';
             document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-wifi"></i> متصل';
+            updateSidebarYearBadge();
             
         } catch (error) {
             console.error('خطأ في تحميل البيانات:', error);
@@ -775,81 +950,89 @@
     }
     
     function setupRealtimeListeners() {
-        const studentsRef = ref(db, 'students');
+        // نعيد ربط المستمعين حسب السنة الحالية (onValue يستبدل التحديثات لنفس المسار)
+        const studentsRef = ref(db, yearPath('students'));
         onValue(studentsRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
-                students = Object.values(data);
+                students = Object.values(data || {}).filter(Boolean);
                 if (currentUser) {
                     refreshCurrentPage();
                 }
+            } else {
+                students = [];
             }
         });
         
-        const attendanceRef = ref(db, 'attendance');
+        const attendanceRef = ref(db, yearPath('attendance'));
         onValue(attendanceRef, (snapshot) => {
             if (snapshot.exists()) {
-                attendance = snapshot.val();
-                if (currentUser && currentPage === 'attendance') {
-                    renderAttendanceGrid();
-                }
-                if (currentUser) {
-                    checkWarnings();
-                    if (currentPage === 'dashboard') renderDashboardPage(document.getElementById('mainContent'));
-                    if (currentPage === 'warnings') renderWarningsTable();
-                    if (currentPage === 'reports') generateReport();
-                }
+                attendance = snapshot.val() || {};
+            } else {
+                attendance = {};
+            }
+            if (currentUser && currentPage === 'attendance') {
+                renderAttendanceGrid();
+            }
+            if (currentUser) {
+                checkWarnings();
+                if (currentPage === 'dashboard') renderDashboardPage(document.getElementById('mainContent'));
+                if (currentPage === 'warnings') renderWarningsTable();
+                if (currentPage === 'reports') generateReport();
             }
         });
         
-        const notifRef = ref(db, 'notifications');
+        const notifRef = ref(db, yearPath('notifications'));
         onValue(notifRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
-                notifications = Object.values(data);
-                updateNotificationBadge();
-                if (currentUser && currentPage === 'notifications') {
-                    renderNotificationsPage(document.getElementById('mainContent'));
-                }
+                notifications = Object.values(data || {}).filter(Boolean);
+            } else {
+                notifications = [];
+            }
+            updateNotificationBadge();
+            if (currentUser && currentPage === 'notifications') {
+                renderNotificationsPage(document.getElementById('mainContent'));
             }
         });
         
-        const interviewRef = ref(db, 'interviews');
+        const interviewRef = ref(db, yearPath('interviews'));
         onValue(interviewRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
-                interviews = Object.values(data);
-                if (currentUser && currentPage === 'interviews') {
-                    renderInterviewsPage(document.getElementById('mainContent'));
-                }
+                interviews = Object.values(data || {}).filter(Boolean);
             } else {
                 interviews = [];
             }
+            if (currentUser && currentPage === 'interviews') {
+                renderInterviewsPage(document.getElementById('mainContent'));
+            }
         });
+        yearListenersAttached = true;
     }
     
     async function saveData() {
         if (!currentUser) return;
         try {
-            const studentsRef = ref(db, 'students');
+            const studentsRef = ref(db, yearPath('students'));
             const studentsObj = {};
-            students.forEach(s => { studentsObj[s.id] = s; });
+            students.forEach(s => { if (s && s.id != null) studentsObj[s.id] = s; });
             await set(studentsRef, studentsObj);
             
-            const attendanceRef = ref(db, 'attendance');
-            await set(attendanceRef, attendance);
+            const attendanceRef = ref(db, yearPath('attendance'));
+            await set(attendanceRef, attendance || {});
             
-            const notifRef = ref(db, 'notifications');
+            const notifRef = ref(db, yearPath('notifications'));
             const notifObj = {};
-            notifications.forEach(n => { notifObj[n.id] = n; });
+            notifications.forEach(n => { if (n && n.id != null) notifObj[n.id] = n; });
             await set(notifRef, notifObj);
             
-            const interviewRef = ref(db, 'interviews');
+            const interviewRef = ref(db, yearPath('interviews'));
             const interviewObj = {};
-            interviews.forEach(i => { interviewObj[i.id] = i; });
+            interviews.forEach(i => { if (i && i.id != null) interviewObj[i.id] = i; });
             await set(interviewRef, interviewObj);
             
-            showAlert('✅ تم الحفظ في Firebase بنجاح','success');
+            showAlert('✅ تم الحفظ في Firebase بنجاح (' + currentYear + ')','success');
         } catch (error) {
             console.error('خطأ في الحفظ:', error);
             showAlert('❌ خطأ في الحفظ: '+error.message,'danger');
@@ -1197,6 +1380,7 @@
         
         if (isSuper || isAdmin) items.push({page: 'admins', icon: 'fa-building', label: 'الإدارات'});
         if (isSuper) items.push({page: 'users', icon: 'fa-users-cog', label: 'إدارة المستخدمين'});
+        if (isSuper) items.push({page: 'years', icon: 'fa-calendar-alt', label: 'السنوات الدراسية'});
         if (isSuper || isAdmin || isAffairs || isSocial) items.push({page: 'schools', icon: 'fa-school', label: 'المدارس'});
         
         if (!isTeacher && (perms.includes('manage_students') || perms.includes('all'))) {
@@ -1248,6 +1432,7 @@
             case'dashboard':renderDashboardPage(c);break;
             case'admins':renderAdminsPage(c);break;
             case'users':renderUsersPage(c);break;
+            case'years':renderYearsPage(c);break;
             case'schools':renderSchoolsPage(c);break;
             case'students':renderStudentsPage(c);break;
             case'attendance':renderAttendancePage(c);break;
@@ -1282,6 +1467,7 @@
     
     function getBreadcrumb(){
         let parts=['<span>الرئيسية</span>'];
+        parts.push(`<i class="fas fa-chevron-left"></i><span>${currentYear}</span>`);
         if(currentUser.admin)parts.push(`<i class="fas fa-chevron-left"></i><span>${currentUser.admin}</span>`);
         if(currentUser.school)parts.push(`<i class="fas fa-chevron-left"></i><span>${currentUser.school.length>25?currentUser.school.substring(0,25)+'...':currentUser.school}</span>`);
         return`<div class="breadcrumb">${parts.join('')}</div>`;
@@ -1866,6 +2052,54 @@
             </div>
         `;
         renderUsersTable();
+    }
+    
+    function renderYearsPage(c){
+        if(currentUser.role !== 'super'){
+            showAlert('صلاحية إدارة السنوات الدراسية لمسؤول المديرية فقط', 'danger');
+            showPage('dashboard');
+            return;
+        }
+        c.innerHTML = `
+            <div class="top-bar">
+                <div class="page-title">
+                    <h1><i class="fas fa-calendar-alt" style="color:var(--primary)"></i> السنوات الدراسية</h1>
+                    ${getBreadcrumb()}
+                </div>
+                <button class="btn btn-success btn-sm" onclick="openCreateYearModal()">
+                    <i class="fas fa-plus"></i> إنشاء سنة دراسية جديدة
+                </button>
+            </div>
+            <div class="warning-banner">
+                <i class="fas fa-info-circle"></i>
+                <div class="warning-banner-text">
+                    <h4>فصل البيانات حسب العام الدراسي</h4>
+                    <p>كل سنة دراسية تحتفظ ببياناتها (الطلاب، الغياب، الإنذارات، المقابلات) بشكل مستقل. إنشاء سنة جديدة لا يحذف السنوات السابقة ويمكن استدعاؤها في أي وقت.</p>
+                </div>
+            </div>
+            <div class="content-card">
+                <div class="card-header">
+                    <h3>السنوات المتاحة</h3>
+                    <span class="badge badge-primary">السنة الحالية: ${currentYear}</span>
+                </div>
+                <div class="card-body">
+                    <div class="admin-grid" id="yearsGrid">
+                        ${availableYears.slice().sort().reverse().map(y => `
+                            <div class="admin-card ${y === currentYear ? 'selected' : ''}" style="${y === currentYear ? 'border-color:var(--primary);background:rgba(59,130,246,0.08)' : ''}">
+                                <div style="display:flex;justify-content:space-between;align-items:start;gap:.3rem;flex-wrap:wrap">
+                                    <h4 style="color:var(--primary)"><i class="fas fa-calendar-check"></i> ${y}</h4>
+                                    ${y === currentYear ? '<span class="badge badge-success">نشطة</span>' : ''}
+                                </div>
+                                <p style="margin-top:.4rem;font-size:.75rem;color:var(--text-light)">العام الدراسي ${y}</p>
+                                <div style="margin-top:.6rem;display:flex;gap:.4rem;flex-wrap:wrap">
+                                    ${y !== currentYear ? `<button class="btn btn-sm btn-primary" onclick="switchAcademicYear('${y}')"><i class="fas fa-exchange-alt"></i> تبديل إليها</button>` : '<button class="btn btn-sm btn-outline" disabled><i class="fas fa-check"></i> السنة الحالية</button>'}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
     }
     
     function renderAdminsPage(c){
@@ -2575,7 +2809,7 @@
     
     function renderReportsPage(c){
         let fs=getFilteredStudents();
-        c.innerHTML=`<div class="top-bar no-print"><div class="page-title"><h1>التقارير</h1>${getBreadcrumb()}</div><div class="btn-group"><button class="btn btn-success btn-sm" onclick="exportToExcel()"><i class="fas fa-file-excel"></i> تصدير</button><button class="btn btn-primary btn-sm" onclick="window.print()"><i class="fas fa-print"></i> طباعة</button></div></div><div class="content-card print-area"><div class="card-header"><h3>تقرير الغياب الشامل</h3></div><div class="card-body">
+        c.innerHTML=`<div class="top-bar no-print"><div class="page-title"><h1>التقارير</h1>${getBreadcrumb()}</div><div class="btn-group"><button class="btn btn-success btn-sm" onclick="exportToExcel()"><i class="fas fa-file-excel"></i> تصدير</button><button class="btn btn-primary btn-sm" onclick="window.print()"><i class="fas fa-print"></i> طباعة</button></div></div><div class="content-card print-area"><div class="card-header"><h3>تقرير الغياب الشامل — العام الدراسي ${currentYear}</h3></div><div class="card-body">
             <div class="form-row no-print" style="margin-bottom:.75rem">
                 <div class="form-group"><label class="form-label">من تاريخ</label><input type="date" class="form-control" id="reportFrom" value="${new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0]}"></div>
                 <div class="form-group"><label class="form-label">إلى تاريخ</label><input type="date" class="form-control" id="reportTo" value="${new Date().toISOString().split('T')[0]}"></div>
@@ -2646,7 +2880,7 @@
             });
         }
         
-        container.innerHTML=`<div class="content-card" style="margin-top:.75rem"><div class="card-header"><h3>التقرير من ${formatDateArabic(from)} إلى ${formatDateArabic(to)} ${gradeFilter?' - صف '+gradeFilter:''} ${specialtyFilter?' - تخصص '+specialtyFilter:''}</h3></div><div class="card-body" style="padding:0"><div class="table-wrap"><table class="data-table"><thead><tr>
+        container.innerHTML=`<div class="content-card" style="margin-top:.75rem"><div class="card-header"><h3>العام الدراسي ${currentYear} — التقرير من ${formatDateArabic(from)} إلى ${formatDateArabic(to)} ${gradeFilter?' - صف '+gradeFilter:''} ${specialtyFilter?' - تخصص '+specialtyFilter:''}</h3></div><div class="card-body" style="padding:0"><div class="table-wrap"><table class="data-table"><thead><tr>
             <th onclick="sortReport('name')"># ${getReportSortIcon('name')}</th>
             <th onclick="sortReport('name')">الطالب ${getReportSortIcon('name')}</th>
             <th onclick="sortReport('school')">المدرسة ${getReportSortIcon('school')}</th>
