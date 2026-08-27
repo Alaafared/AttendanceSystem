@@ -695,7 +695,7 @@
         affairs:{label:'مسؤول شؤون طلبة',icon:'fa-user-tie',color:'#1e3a8a',perms:['manage_students','manage_attendance','view_warnings','view_notifications']},
         social:{label:'أخصائي اجتماعي',icon:'fa-hands-helping',color:'#16a34a',perms:['view_warnings','view_reports','view_notifications','manage_interviews']},
         room:{label:'مسؤول الغرفة',icon:'fa-door-open',color:'#8b5cf6',perms:['view_warnings','view_reports','manage_evaluations']},
-        teacher:{label:'معلم الحصة',icon:'fa-chalkboard-teacher',color:'#f59e0b',perms:['view_teacher_warnings','view_teacher_reports']}
+        teacher:{label:'معلم الحصة',icon:'fa-chalkboard-teacher',color:'#f59e0b',perms:['view_teacher_warnings','view_teacher_reports','view_evaluations']}
     };
     
     // ======== المتغيرات العامة ========
@@ -1306,7 +1306,7 @@
             items.push({page: 'interviews', icon: 'fa-handshake', label: 'مقابلات ولي الأمر'});
         }
         
-        if (isRoom || isSuper || perms.includes('manage_evaluations') || perms.includes('all')) {
+        if (isRoom || isTeacher || isSuper || perms.includes('manage_evaluations') || perms.includes('view_evaluations') || perms.includes('all')) {
             items.push({page: 'evaluations', icon: 'fa-clipboard-list', label: 'جداول التقييمات'});
         }
         
@@ -3146,12 +3146,22 @@
         return { status1, status2, status3, finalStatus };
     }
     
+    function canManageEvaluations(){
+        return currentUser && (currentUser.role === 'room' || currentUser.role === 'super' || (ROLES[currentUser.role]?.perms || []).includes('manage_evaluations') || (ROLES[currentUser.role]?.perms || []).includes('all'));
+    }
+    
+    function canViewEvaluations(){
+        return currentUser && (canManageEvaluations() || currentUser.role === 'teacher' || (ROLES[currentUser.role]?.perms || []).includes('view_evaluations'));
+    }
+    
     function renderEvaluationsPage(c){
-        if(currentUser.role !== 'room' && currentUser.role !== 'super' && !(ROLES[currentUser.role]?.perms || []).includes('manage_evaluations') && !(ROLES[currentUser.role]?.perms || []).includes('all')){
-            showAlert('هذه الصفحة مخصصة لمسؤول الغرفة', 'warning');
-            showPage('dashboard');
+        if(!canViewEvaluations()){
+            showAlert('ليس لديك صلاحية عرض جداول التقييمات', 'warning');
+            showPage(currentUser.role === 'teacher' ? 'reports' : 'dashboard');
             return;
         }
+        
+        const canManage = canManageEvaluations();
         
         c.innerHTML = `
             <div class="top-bar">
@@ -3160,15 +3170,15 @@
                     ${getBreadcrumb()}
                 </div>
                 <div class="btn-group">
-                    <button class="btn btn-success btn-sm" onclick="openEvaluationModal()">
+                    ${canManage ? `<button class="btn btn-success btn-sm" onclick="openEvaluationModal()">
                         <i class="fas fa-plus"></i> إنشاء جدول تقييم
-                    </button>
+                    </button>` : ''}
                     <button class="btn btn-primary btn-sm" onclick="printEvaluationsList()">
                         <i class="fas fa-print"></i> طباعة القائمة
                     </button>
-                    <button class="btn btn-info btn-sm" onclick="exportEvaluationsToExcel()">
+                    ${canManage ? `<button class="btn btn-info btn-sm" onclick="exportEvaluationsToExcel()">
                         <i class="fas fa-file-excel"></i> تصدير
-                    </button>
+                    </button>` : ''}
                 </div>
             </div>
             <div class="filters-bar">
@@ -3317,8 +3327,10 @@
         if(countEl) countEl.textContent = list.length;
         if(!tbody) return;
         
+        const canManage = canManageEvaluations();
+        
         if(list.length === 0){
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:1.5rem;color:var(--text-light)">لا توجد جداول تقييم. اضغط «إنشاء جدول تقييم» للبدء.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:1.5rem;color:var(--text-light)">${canManage ? 'لا توجد جداول تقييم. اضغط «إنشاء جدول تقييم» للبدء.' : 'لا توجد جداول تقييم معروضة حالياً.'}</td></tr>`;
             return;
         }
         
@@ -3336,8 +3348,8 @@
                     <td style="font-size:.75rem">${fmt(e.date3)}</td>
                     <td>
                         <button class="btn btn-sm btn-info" onclick="viewEvalStudents('${e.id}')" title="عرض نتائج الطلاب"><i class="fas fa-users"></i></button>
-                        <button class="btn btn-sm btn-primary" onclick="editEvaluation('${e.id}')" title="تعديل"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteEvaluation('${e.id}')" title="حذف"><i class="fas fa-trash"></i></button>
+                        ${canManage ? `<button class="btn btn-sm btn-primary" onclick="editEvaluation('${e.id}')" title="تعديل"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteEvaluation('${e.id}')" title="حذف"><i class="fas fa-trash"></i></button>` : ''}
                         <button class="btn btn-sm btn-success" onclick="printSingleEvaluation('${e.id}')" title="طباعة"><i class="fas fa-print"></i></button>
                     </td>
                 </tr>
@@ -3346,8 +3358,8 @@
     }
     
     function openEvaluationModal(id = null){
-        if(currentUser.role !== 'room' && currentUser.role !== 'super' && !(ROLES[currentUser.role]?.perms || []).includes('all')){
-            showAlert('ليس لديك صلاحية', 'danger');
+        if(!canManageEvaluations()){
+            showAlert('ليس لديك صلاحية التعديل على جداول التقييمات', 'danger');
             return;
         }
         const progSelect = document.getElementById('evalProgram');
@@ -3383,6 +3395,10 @@
     function editEvaluation(id){ openEvaluationModal(id); }
     
     async function saveEvaluation(){
+        if(!canManageEvaluations()){
+            showAlert('ليس لديك صلاحية التعديل على جداول التقييمات', 'danger');
+            return;
+        }
         const id = document.getElementById('evalId').value;
         const program = document.getElementById('evalProgram').value;
         const grade = document.getElementById('evalGrade').value;
@@ -3425,11 +3441,16 @@
     }
     
     async function deleteEvaluation(id){
+        if(!canManageEvaluations()){
+            showAlert('ليس لديك صلاحية حذف جداول التقييمات', 'danger');
+            return;
+        }
         if(!confirm('هل أنت متأكد من حذف جدول التقييم هذا؟')) return;
         evaluations = evaluations.filter(e => String(e.id) !== String(id));
         await saveData();
         renderEvaluationsTable();
-        document.getElementById('evalStudentsSection').style.display = 'none';
+        const sec = document.getElementById('evalStudentsSection');
+        if(sec) sec.style.display = 'none';
         showAlert('تم حذف جدول التقييم', 'info');
     }
     
