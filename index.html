@@ -315,7 +315,32 @@
         
         /* ===== Print Styles ===== */
         .print-only{display:none}
-        @media print{.print-only{display:block!important}body *{visibility:hidden}.print-area,.print-area *{visibility:visible}.print-area{position:fixed;top:0;right:0;width:100%;padding:2rem;background:white;z-index:9999}.sidebar,.top-bar,.btn,.alert-container,.no-print{display:none!important}.main-content{margin:0;padding:0}}
+        @media print{
+            .print-only{display:block!important}
+            body *{visibility:hidden}
+            .print-area,.print-area *{visibility:visible}
+            .print-area{
+                position:absolute;
+                left:0;
+                top:0;
+                width:100%;
+                padding:1rem;
+                background:white;
+                z-index:9999;
+                overflow:visible;
+                height:auto;
+                min-height:100%;
+            }
+            .sidebar,.top-bar,.btn,.alert-container,.no-print,.menu-toggle,.sidebar-overlay,.nav-menu,.sidebar-footer,.user-info-sidebar,.sidebar-header{display:none!important}
+            .main-content{margin:0!important;padding:0!important;width:100%!important}
+            .data-table{page-break-inside:auto}
+            .data-table tr{page-break-inside:avoid;page-break-after:auto}
+            .data-table thead{display:table-header-group}
+            .data-table tfoot{display:table-footer-group}
+            .content-card{box-shadow:none;border:none;page-break-inside:auto}
+            .table-wrap{overflow:visible!important;max-height:none!important}
+            .card-header,.card-body{page-break-inside:auto}
+        }
         
         /* ===== Responsive ===== */
         @media(max-width:1024px){
@@ -427,6 +452,10 @@
         </div>
         <ul class="nav-menu" id="navMenu"></ul>
         <div class="sidebar-footer">
+            <div style="margin-bottom:.5rem;padding:.4rem .5rem;background:var(--bg);border-radius:8px;font-size:.7rem">
+                <div style="color:var(--text-light);margin-bottom:.2rem"><i class="fas fa-calendar-alt"></i> العام الدراسي</div>
+                <div style="font-weight:700;color:var(--primary)" id="currentYearBadge">2025-2026</div>
+            </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;flex-wrap:wrap;gap:.3rem">
                 <span class="connection-status online" id="connectionStatus"><i class="fas fa-wifi"></i> متصل</span>
                 <button class="btn btn-outline btn-sm" onclick="logout()"><i class="fas fa-sign-out-alt"></i> خروج</button>
@@ -611,68 +640,6 @@
     </div>
 </div>
 
-<!-- مودال جدول التقييم -->
-<div class="modal-overlay" id="evaluationModal">
-    <div class="modal">
-        <div class="modal-header"><h3 id="evalModalTitle"><i class="fas fa-clipboard-list"></i> إضافة جدول تقييم</h3><button class="modal-close" onclick="closeModal('evaluationModal')"><i class="fas fa-times"></i></button></div>
-        <div class="modal-body">
-            <input type="hidden" id="evalId">
-            <div class="form-group">
-                <label class="form-label">اسم البرنامج (التخصص) <span style="color:var(--danger)">*</span></label>
-                <select class="form-control" id="evalProgram">
-                    <option value="">اختر البرنامج</option>
-                </select>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">الصف <span style="color:var(--danger)">*</span></label>
-                    <select class="form-control" id="evalGrade">
-                        <option value="">اختر</option>
-                        <option value="الأول">الأول</option>
-                        <option value="الثاني">الثاني</option>
-                        <option value="الثالث">الثالث</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">نوع المخرج <span style="color:var(--danger)">*</span></label>
-                    <select class="form-control" id="evalOutputType">
-                        <option value="">اختر</option>
-                        <option value="دليل أداء">دليل أداء</option>
-                        <option value="دليل منتج">دليل منتج</option>
-                        <option value="دليل تساؤل">دليل تساؤل</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">اسم الوحدة <span style="color:var(--danger)">*</span></label>
-                <input type="text" class="form-control" id="evalUnit" placeholder="اسم الوحدة الدراسية">
-            </div>
-            <div class="form-group">
-                <label class="form-label">رقم المخرج <span style="color:var(--danger)">*</span></label>
-                <input type="text" class="form-control" id="evalOutputNo" placeholder="مثال: م1 أو 1.2">
-            </div>
-            <div class="form-row-3">
-                <div class="form-group">
-                    <label class="form-label">تاريخ الفرصة الأولى <span style="color:var(--danger)">*</span></label>
-                    <input type="date" class="form-control" id="evalDate1">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">تاريخ الفرصة الثانية</label>
-                    <input type="date" class="form-control" id="evalDate2">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">تاريخ الفرصة الثالثة</label>
-                    <input type="date" class="form-control" id="evalDate3">
-                </div>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-outline btn-sm" onclick="closeModal('evaluationModal')">إلغاء</button>
-            <button class="btn btn-primary btn-sm" onclick="saveEvaluation()"><i class="fas fa-save"></i> حفظ</button>
-        </div>
-    </div>
-</div>
-
 <script>
     // ======== البيانات الثابتة ========
     const ADMINISTRATIONS=["شمال","جنوب","فايد","القنطرة غرب","القنطرة شرق","ابو صوير","القصاصين","التل الكبير"];
@@ -736,6 +703,7 @@
     "فني لوجستيات",
     "فني زخرفه و اعلان",
     "فني نجارة اثاث",
+    "فني نجارة أثاث",
     "فنی زخرفه وإعلان",
     "فنى هندسة زراعية",
     "فنی محاصيل زراعية",
@@ -746,15 +714,15 @@
     "فنى هندسة وميكنة زراعية",
     "فني طاهي",
     "فني الزخرفة والديكور"
-  ];    
+  ];        
     // ======== ROLES ========
     const ROLES={
         super:{label:'مسؤول المديرية',icon:'fa-crown',color:'#dc2626',perms:['all']},
         admin:{label:'مسؤول إدارة',icon:'fa-building',color:'#7c3aed',perms:['view_admin','view_reports','view_warnings','view_notifications']},
         affairs:{label:'مسؤول شؤون طلبة',icon:'fa-user-tie',color:'#1e3a8a',perms:['manage_students','manage_attendance','view_warnings','view_notifications']},
         social:{label:'أخصائي اجتماعي',icon:'fa-hands-helping',color:'#16a34a',perms:['view_warnings','view_reports','view_notifications','manage_interviews']},
-        room:{label:'مسؤول الغرفة',icon:'fa-door-open',color:'#8b5cf6',perms:['view_warnings','view_reports','manage_evaluations']},
-        teacher:{label:'معلم الحصة',icon:'fa-chalkboard-teacher',color:'#f59e0b',perms:['view_teacher_warnings','view_teacher_reports','view_evaluations']}
+        room:{label:'مسؤول الغرفة',icon:'fa-door-open',color:'#8b5cf6',perms:['view_warnings','view_reports']},
+        teacher:{label:'معلم الحصة',icon:'fa-chalkboard-teacher',color:'#f59e0b',perms:['view_teacher_warnings','view_teacher_reports']}
     };
     
     // ======== المتغيرات العامة ========
@@ -763,7 +731,6 @@
     let attendance={};
     let notifications=[];
     let interviews=[];
-    let evaluations=[];
     let previewData=[];
     let currentPage='dashboard';
     let currentWarningTab='all';
@@ -774,8 +741,149 @@
     let interviewSortConfig = {column:'date', direction:'desc'};
     let userSortConfig = {column:null, direction:'asc'};  // متغير ترتيب المستخدمين
     let warningSortConfig = {column:null, direction:'asc'};
-    let evalSortConfig = {column:null, direction:'asc'};
-    let currentEvalViewId = null;
+    
+    // ======== السنوات الدراسية ========
+    const DEFAULT_YEAR = '2025-2026';
+    let currentYear = DEFAULT_YEAR;
+    let availableYears = [DEFAULT_YEAR];
+    let yearListenersAttached = false;
+    
+    function yearPath(subPath) {
+        return `academicYears/${currentYear}/${subPath}`;
+    }
+    
+    async function ensureYearsInitialized() {
+        try {
+            const listRef = ref(db, 'academicYearsList');
+            const listSnap = await get(listRef);
+            if (listSnap.exists()) {
+                const data = listSnap.val();
+                availableYears = Array.isArray(data) ? data : Object.values(data);
+                if (!availableYears.includes(DEFAULT_YEAR)) availableYears.unshift(DEFAULT_YEAR);
+            } else {
+                // ترحيل البيانات القديمة إن وُجدت إلى السنة الافتراضية
+                availableYears = [DEFAULT_YEAR];
+                await set(listRef, availableYears);
+                
+                const oldStudents = await get(ref(db, 'students'));
+                const oldAttendance = await get(ref(db, 'attendance'));
+                const oldNotifs = await get(ref(db, 'notifications'));
+                const oldInterviews = await get(ref(db, 'interviews'));
+                
+                if (oldStudents.exists() || oldAttendance.exists() || oldNotifs.exists() || oldInterviews.exists()) {
+                    if (oldStudents.exists()) await set(ref(db, yearPath('students')), oldStudents.val());
+                    if (oldAttendance.exists()) await set(ref(db, yearPath('attendance')), oldAttendance.val());
+                    if (oldNotifs.exists()) await set(ref(db, yearPath('notifications')), oldNotifs.val());
+                    if (oldInterviews.exists()) await set(ref(db, yearPath('interviews')), oldInterviews.val());
+                    console.log('✅ تم ترحيل البيانات القديمة إلى السنة الدراسية ' + DEFAULT_YEAR);
+                }
+            }
+            
+            // التأكد من وجود عقدة السنة الحالية
+            const yearMetaRef = ref(db, `academicYears/${currentYear}/meta`);
+            const yearMetaSnap = await get(yearMetaRef);
+            if (!yearMetaSnap.exists()) {
+                await set(yearMetaRef, {
+                    name: currentYear,
+                    createdAt: new Date().toISOString(),
+                    label: 'العام الدراسي ' + currentYear
+                });
+            }
+            
+            // استعادة السنة المختارة سابقاً إن وُجدت
+            const savedYear = localStorage.getItem('selectedAcademicYear');
+            if (savedYear && availableYears.includes(savedYear)) {
+                currentYear = savedYear;
+            } else {
+                currentYear = availableYears[availableYears.length - 1] || DEFAULT_YEAR;
+            }
+        } catch (e) {
+            console.error('خطأ في تهيئة السنوات:', e);
+            availableYears = [DEFAULT_YEAR];
+            currentYear = DEFAULT_YEAR;
+        }
+    }
+    
+    async function createNewAcademicYear(newYear) {
+        if (!newYear || !/^\d{4}-\d{4}$/.test(newYear)) {
+            showAlert('صيغة السنة غير صحيحة. استخدم مثل: 2026-2027', 'warning');
+            return false;
+        }
+        if (availableYears.includes(newYear)) {
+            showAlert('هذه السنة الدراسية موجودة بالفعل', 'warning');
+            return false;
+        }
+        try {
+            availableYears.push(newYear);
+            availableYears.sort();
+            await set(ref(db, 'academicYearsList'), availableYears);
+            await set(ref(db, `academicYears/${newYear}/meta`), {
+                name: newYear,
+                createdAt: new Date().toISOString(),
+                label: 'العام الدراسي ' + newYear,
+                createdBy: currentUser?.name || 'system'
+            });
+            // إنشاء عقد فارغة للبيانات
+            await set(ref(db, `academicYears/${newYear}/students`), {});
+            await set(ref(db, `academicYears/${newYear}/attendance`), {});
+            await set(ref(db, `academicYears/${newYear}/notifications`), {});
+            await set(ref(db, `academicYears/${newYear}/interviews`), {});
+            showAlert('✅ تم إنشاء السنة الدراسية ' + newYear + ' بنجاح (البيانات القديمة محفوظة)', 'success');
+            return true;
+        } catch (e) {
+            console.error(e);
+            showAlert('خطأ في إنشاء السنة: ' + e.message, 'danger');
+            return false;
+        }
+    }
+    
+    async function switchAcademicYear(year) {
+        if (!availableYears.includes(year)) {
+            showAlert('السنة الدراسية غير موجودة', 'danger');
+            return;
+        }
+        if (year === currentYear) return;
+        currentYear = year;
+        localStorage.setItem('selectedAcademicYear', year);
+        students = [];
+        attendance = {};
+        notifications = [];
+        interviews = [];
+        yearListenersAttached = false;
+        showAlert('جاري تحميل بيانات العام ' + year + '...', 'info');
+        await loadAllData();
+        if (currentUser) {
+            refreshCurrentPage();
+            updateSidebarYearBadge();
+        }
+        showAlert('تم التبديل إلى العام الدراسي ' + year, 'success');
+    }
+    
+    function updateSidebarYearBadge() {
+        const el = document.getElementById('currentYearBadge');
+        if (el) el.textContent = currentYear;
+    }
+    
+    function openCreateYearModal() {
+        if (currentUser?.role !== 'super') {
+            showAlert('صلاحية إنشاء سنة دراسية جديدة لمسؤول المديرية فقط', 'danger');
+            return;
+        }
+        const last = availableYears[availableYears.length - 1] || DEFAULT_YEAR;
+        const parts = last.split('-');
+        const nextStart = parseInt(parts[1], 10);
+        const suggested = nextStart + '-' + (nextStart + 1);
+        const input = prompt('أدخل السنة الدراسية الجديدة (مثال: ' + suggested + '):', suggested);
+        if (input === null) return;
+        const year = input.trim();
+        createNewAcademicYear(year).then(ok => {
+            if (ok) {
+                // تحديث واجهة السنوات إن كانت مفتوحة
+                if (currentPage === 'years') renderYearsPage(document.getElementById('mainContent'));
+                updateSidebarYearBadge();
+            }
+        });
+    }
     
     // ======== دوال Firebase ========
     async function loginWithFirebase() {
@@ -849,48 +957,41 @@
     
     async function loadAllData() {
         try {
-            const studentsRef = ref(db, 'students');
+            await ensureYearsInitialized();
+            
+            const studentsRef = ref(db, yearPath('students'));
             const studentsSnap = await get(studentsRef);
             if (studentsSnap.exists()) {
                 const data = studentsSnap.val();
-                students = Object.values(data);
+                students = Object.values(data || {}).filter(Boolean);
             } else {
                 students = [];
             }
             
-            const attendanceRef = ref(db, 'attendance');
+            const attendanceRef = ref(db, yearPath('attendance'));
             const attendanceSnap = await get(attendanceRef);
             if (attendanceSnap.exists()) {
-                attendance = attendanceSnap.val();
+                attendance = attendanceSnap.val() || {};
             } else {
                 attendance = {};
             }
             
-            const notifRef = ref(db, 'notifications');
+            const notifRef = ref(db, yearPath('notifications'));
             const notifSnap = await get(notifRef);
             if (notifSnap.exists()) {
                 const data = notifSnap.val();
-                notifications = Object.values(data);
+                notifications = Object.values(data || {}).filter(Boolean);
             } else {
                 notifications = [];
             }
             
-            const interviewRef = ref(db, 'interviews');
+            const interviewRef = ref(db, yearPath('interviews'));
             const interviewSnap = await get(interviewRef);
             if (interviewSnap.exists()) {
                 const data = interviewSnap.val();
-                interviews = Object.values(data);
+                interviews = Object.values(data || {}).filter(Boolean);
             } else {
                 interviews = [];
-            }
-            
-            const evalRef = ref(db, 'evaluations');
-            const evalSnap = await get(evalRef);
-            if (evalSnap.exists()) {
-                const data = evalSnap.val();
-                evaluations = Object.values(data);
-            } else {
-                evaluations = [];
             }
             
             setupRealtimeListeners();
@@ -898,6 +999,7 @@
             isFirebaseReady = true;
             document.getElementById('connectionStatus').className = 'connection-status online';
             document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-wifi"></i> متصل';
+            updateSidebarYearBadge();
             
         } catch (error) {
             console.error('خطأ في تحميل البيانات:', error);
@@ -908,99 +1010,89 @@
     }
     
     function setupRealtimeListeners() {
-        const studentsRef = ref(db, 'students');
+        // نعيد ربط المستمعين حسب السنة الحالية (onValue يستبدل التحديثات لنفس المسار)
+        const studentsRef = ref(db, yearPath('students'));
         onValue(studentsRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
-                students = Object.values(data);
+                students = Object.values(data || {}).filter(Boolean);
                 if (currentUser) {
                     refreshCurrentPage();
                 }
+            } else {
+                students = [];
             }
         });
         
-        const attendanceRef = ref(db, 'attendance');
+        const attendanceRef = ref(db, yearPath('attendance'));
         onValue(attendanceRef, (snapshot) => {
             if (snapshot.exists()) {
-                attendance = snapshot.val();
-                if (currentUser && currentPage === 'attendance') {
-                    renderAttendanceGrid();
-                }
-                if (currentUser) {
-                    checkWarnings();
-                    if (currentPage === 'dashboard') renderDashboardPage(document.getElementById('mainContent'));
-                    if (currentPage === 'warnings') renderWarningsTable();
-                    if (currentPage === 'reports') generateReport();
-                }
+                attendance = snapshot.val() || {};
+            } else {
+                attendance = {};
+            }
+            if (currentUser && currentPage === 'attendance') {
+                renderAttendanceGrid();
+            }
+            if (currentUser) {
+                checkWarnings();
+                if (currentPage === 'dashboard') renderDashboardPage(document.getElementById('mainContent'));
+                if (currentPage === 'warnings') renderWarningsTable();
+                if (currentPage === 'reports') generateReport();
             }
         });
         
-        const notifRef = ref(db, 'notifications');
+        const notifRef = ref(db, yearPath('notifications'));
         onValue(notifRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
-                notifications = Object.values(data);
-                updateNotificationBadge();
-                if (currentUser && currentPage === 'notifications') {
-                    renderNotificationsPage(document.getElementById('mainContent'));
-                }
+                notifications = Object.values(data || {}).filter(Boolean);
+            } else {
+                notifications = [];
+            }
+            updateNotificationBadge();
+            if (currentUser && currentPage === 'notifications') {
+                renderNotificationsPage(document.getElementById('mainContent'));
             }
         });
         
-        const interviewRef = ref(db, 'interviews');
+        const interviewRef = ref(db, yearPath('interviews'));
         onValue(interviewRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
-                interviews = Object.values(data);
-                if (currentUser && currentPage === 'interviews') {
-                    renderInterviewsPage(document.getElementById('mainContent'));
-                }
+                interviews = Object.values(data || {}).filter(Boolean);
             } else {
                 interviews = [];
             }
-        });
-        
-        const evalRef = ref(db, 'evaluations');
-        onValue(evalRef, (snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.val();
-                evaluations = Object.values(data);
-            } else {
-                evaluations = [];
-            }
-            if (currentUser && currentPage === 'evaluations') {
-                renderEvaluationsPage(document.getElementById('mainContent'));
+            if (currentUser && currentPage === 'interviews') {
+                renderInterviewsPage(document.getElementById('mainContent'));
             }
         });
+        yearListenersAttached = true;
     }
     
     async function saveData() {
         if (!currentUser) return;
         try {
-            const studentsRef = ref(db, 'students');
+            const studentsRef = ref(db, yearPath('students'));
             const studentsObj = {};
-            students.forEach(s => { studentsObj[s.id] = s; });
+            students.forEach(s => { if (s && s.id != null) studentsObj[s.id] = s; });
             await set(studentsRef, studentsObj);
             
-            const attendanceRef = ref(db, 'attendance');
-            await set(attendanceRef, attendance);
+            const attendanceRef = ref(db, yearPath('attendance'));
+            await set(attendanceRef, attendance || {});
             
-            const notifRef = ref(db, 'notifications');
+            const notifRef = ref(db, yearPath('notifications'));
             const notifObj = {};
-            notifications.forEach(n => { notifObj[n.id] = n; });
+            notifications.forEach(n => { if (n && n.id != null) notifObj[n.id] = n; });
             await set(notifRef, notifObj);
             
-            const interviewRef = ref(db, 'interviews');
+            const interviewRef = ref(db, yearPath('interviews'));
             const interviewObj = {};
-            interviews.forEach(i => { interviewObj[i.id] = i; });
+            interviews.forEach(i => { if (i && i.id != null) interviewObj[i.id] = i; });
             await set(interviewRef, interviewObj);
             
-            const evalRef = ref(db, 'evaluations');
-            const evalObj = {};
-            evaluations.forEach(e => { evalObj[e.id] = e; });
-            await set(evalRef, evalObj);
-            
-            showAlert('✅ تم الحفظ في Firebase بنجاح','success');
+            showAlert('✅ تم الحفظ في Firebase بنجاح (' + currentYear + ')','success');
         } catch (error) {
             console.error('خطأ في الحفظ:', error);
             showAlert('❌ خطأ في الحفظ: '+error.message,'danger');
@@ -1282,7 +1374,6 @@
         attendance={};
         notifications=[];
         interviews=[];
-        evaluations=[];
         document.getElementById('loginScreen').classList.remove('hidden');
         document.getElementById('appContainer').classList.remove('visible');
         document.getElementById('loginRole').value='';
@@ -1304,8 +1395,6 @@
         
         if(currentUser.role === 'teacher'){
             showPage('reports');
-        } else if(currentUser.role === 'room'){
-            showPage('evaluations');
         } else {
             showPage('dashboard');
         }
@@ -1351,6 +1440,7 @@
         
         if (isSuper || isAdmin) items.push({page: 'admins', icon: 'fa-building', label: 'الإدارات'});
         if (isSuper) items.push({page: 'users', icon: 'fa-users-cog', label: 'إدارة المستخدمين'});
+        if (isSuper) items.push({page: 'years', icon: 'fa-calendar-alt', label: 'السنوات الدراسية'});
         if (isSuper || isAdmin || isAffairs || isSocial) items.push({page: 'schools', icon: 'fa-school', label: 'المدارس'});
         
         if (!isTeacher && (perms.includes('manage_students') || perms.includes('all'))) {
@@ -1365,10 +1455,6 @@
             items.push({page: 'interviews', icon: 'fa-handshake', label: 'مقابلات ولي الأمر'});
         }
         
-        if (isRoom || isTeacher || isSuper || perms.includes('manage_evaluations') || perms.includes('view_evaluations') || perms.includes('all')) {
-            items.push({page: 'evaluations', icon: 'fa-clipboard-list', label: 'جداول التقييمات'});
-        }
-        
         if (!isTeacher && (perms.includes('view_warnings') || perms.includes('all') || perms.includes('view_teacher_warnings'))) {
             items.push({page: 'warnings', icon: 'fa-exclamation-triangle', label: 'الإنذارات'});
         }
@@ -1381,7 +1467,7 @@
             items.push({page: 'notifications', icon: 'fa-bell', label: 'الإشعارات', badge: true});
         }
         
-        let defaultActivePage = isTeacher ? 'reports' : (isRoom ? 'evaluations' : 'dashboard');
+        let defaultActivePage = isTeacher ? 'reports' : 'dashboard';
         
         menu.innerHTML = items.map(item => `
             <li class="nav-item">
@@ -1406,6 +1492,7 @@
             case'dashboard':renderDashboardPage(c);break;
             case'admins':renderAdminsPage(c);break;
             case'users':renderUsersPage(c);break;
+            case'years':renderYearsPage(c);break;
             case'schools':renderSchoolsPage(c);break;
             case'students':renderStudentsPage(c);break;
             case'attendance':renderAttendancePage(c);break;
@@ -1413,7 +1500,6 @@
             case'reports':renderReportsPage(c);break;
             case'notifications':renderNotificationsPage(c);break;
             case'interviews':renderInterviewsPage(c);break;
-            case'evaluations':renderEvaluationsPage(c);break;
             default:renderDashboardPage(c);
         }
         if (window.innerWidth <= 1024) {
@@ -1441,6 +1527,7 @@
     
     function getBreadcrumb(){
         let parts=['<span>الرئيسية</span>'];
+        parts.push(`<i class="fas fa-chevron-left"></i><span>${currentYear}</span>`);
         if(currentUser.admin)parts.push(`<i class="fas fa-chevron-left"></i><span>${currentUser.admin}</span>`);
         if(currentUser.school)parts.push(`<i class="fas fa-chevron-left"></i><span>${currentUser.school.length>25?currentUser.school.substring(0,25)+'...':currentUser.school}</span>`);
         return`<div class="breadcrumb">${parts.join('')}</div>`;
@@ -2025,6 +2112,54 @@
             </div>
         `;
         renderUsersTable();
+    }
+    
+    function renderYearsPage(c){
+        if(currentUser.role !== 'super'){
+            showAlert('صلاحية إدارة السنوات الدراسية لمسؤول المديرية فقط', 'danger');
+            showPage('dashboard');
+            return;
+        }
+        c.innerHTML = `
+            <div class="top-bar">
+                <div class="page-title">
+                    <h1><i class="fas fa-calendar-alt" style="color:var(--primary)"></i> السنوات الدراسية</h1>
+                    ${getBreadcrumb()}
+                </div>
+                <button class="btn btn-success btn-sm" onclick="openCreateYearModal()">
+                    <i class="fas fa-plus"></i> إنشاء سنة دراسية جديدة
+                </button>
+            </div>
+            <div class="warning-banner">
+                <i class="fas fa-info-circle"></i>
+                <div class="warning-banner-text">
+                    <h4>فصل البيانات حسب العام الدراسي</h4>
+                    <p>كل سنة دراسية تحتفظ ببياناتها (الطلاب، الغياب، الإنذارات، المقابلات) بشكل مستقل. إنشاء سنة جديدة لا يحذف السنوات السابقة ويمكن استدعاؤها في أي وقت.</p>
+                </div>
+            </div>
+            <div class="content-card">
+                <div class="card-header">
+                    <h3>السنوات المتاحة</h3>
+                    <span class="badge badge-primary">السنة الحالية: ${currentYear}</span>
+                </div>
+                <div class="card-body">
+                    <div class="admin-grid" id="yearsGrid">
+                        ${availableYears.slice().sort().reverse().map(y => `
+                            <div class="admin-card ${y === currentYear ? 'selected' : ''}" style="${y === currentYear ? 'border-color:var(--primary);background:rgba(59,130,246,0.08)' : ''}">
+                                <div style="display:flex;justify-content:space-between;align-items:start;gap:.3rem;flex-wrap:wrap">
+                                    <h4 style="color:var(--primary)"><i class="fas fa-calendar-check"></i> ${y}</h4>
+                                    ${y === currentYear ? '<span class="badge badge-success">نشطة</span>' : ''}
+                                </div>
+                                <p style="margin-top:.4rem;font-size:.75rem;color:var(--text-light)">العام الدراسي ${y}</p>
+                                <div style="margin-top:.6rem;display:flex;gap:.4rem;flex-wrap:wrap">
+                                    ${y !== currentYear ? `<button class="btn btn-sm btn-primary" onclick="switchAcademicYear('${y}')"><i class="fas fa-exchange-alt"></i> تبديل إليها</button>` : '<button class="btn btn-sm btn-outline" disabled><i class="fas fa-check"></i> السنة الحالية</button>'}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
     }
     
     function renderAdminsPage(c){
@@ -2734,7 +2869,7 @@
     
     function renderReportsPage(c){
         let fs=getFilteredStudents();
-        c.innerHTML=`<div class="top-bar no-print"><div class="page-title"><h1>التقارير</h1>${getBreadcrumb()}</div><div class="btn-group"><button class="btn btn-success btn-sm" onclick="exportToExcel()"><i class="fas fa-file-excel"></i> تصدير</button><button class="btn btn-primary btn-sm" onclick="window.print()"><i class="fas fa-print"></i> طباعة</button></div></div><div class="content-card print-area"><div class="card-header"><h3>تقرير الغياب الشامل</h3></div><div class="card-body">
+        c.innerHTML=`<div class="top-bar no-print"><div class="page-title"><h1>التقارير</h1>${getBreadcrumb()}</div><div class="btn-group"><button class="btn btn-success btn-sm" onclick="exportToExcel()"><i class="fas fa-file-excel"></i> تصدير</button><button class="btn btn-primary btn-sm" onclick="window.print()"><i class="fas fa-print"></i> طباعة</button></div></div><div class="content-card print-area"><div class="card-header"><h3>تقرير الغياب الشامل — العام الدراسي ${currentYear}</h3></div><div class="card-body">
             <div class="form-row no-print" style="margin-bottom:.75rem">
                 <div class="form-group"><label class="form-label">من تاريخ</label><input type="date" class="form-control" id="reportFrom" value="${new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0]}"></div>
                 <div class="form-group"><label class="form-label">إلى تاريخ</label><input type="date" class="form-control" id="reportTo" value="${new Date().toISOString().split('T')[0]}"></div>
@@ -2805,7 +2940,7 @@
             });
         }
         
-        container.innerHTML=`<div class="content-card" style="margin-top:.75rem"><div class="card-header"><h3>التقرير من ${formatDateArabic(from)} إلى ${formatDateArabic(to)} ${gradeFilter?' - صف '+gradeFilter:''} ${specialtyFilter?' - تخصص '+specialtyFilter:''}</h3></div><div class="card-body" style="padding:0"><div class="table-wrap"><table class="data-table"><thead><tr>
+        container.innerHTML=`<div class="content-card" style="margin-top:.75rem"><div class="card-header"><h3>العام الدراسي ${currentYear} — التقرير من ${formatDateArabic(from)} إلى ${formatDateArabic(to)} ${gradeFilter?' - صف '+gradeFilter:''} ${specialtyFilter?' - تخصص '+specialtyFilter:''}</h3></div><div class="card-body" style="padding:0"><div class="table-wrap"><table class="data-table"><thead><tr>
             <th onclick="sortReport('name')"># ${getReportSortIcon('name')}</th>
             <th onclick="sortReport('name')">الطالب ${getReportSortIcon('name')}</th>
             <th onclick="sortReport('school')">المدرسة ${getReportSortIcon('school')}</th>
@@ -3149,502 +3284,6 @@
         }, 500);
     }
     
-    // ======== دوال جداول التقييمات (مسؤول الغرفة) ========
-    function getFilteredEvaluations(){
-        if(!currentUser) return [];
-        let list = [...evaluations];
-        if(currentUser.role === 'room' || currentUser.role === 'teacher' || currentUser.role === 'affairs' || currentUser.role === 'social'){
-            list = list.filter(e => e.admin === currentUser.admin && e.school === currentUser.school);
-        } else if(currentUser.role === 'admin'){
-            list = list.filter(e => e.admin === currentUser.admin);
-        }
-        return list;
-    }
-    
-    function isStudentAbsentOnDate(studentId, dateStr){
-        if(!dateStr || !attendance[dateStr]) return false;
-        return attendance[dateStr][studentId] === 'absent';
-    }
-    
-    function getStudentEvalStatus(studentId, evalItem){
-        const d1 = evalItem.date1 || '';
-        const d2 = evalItem.date2 || '';
-        const d3 = evalItem.date3 || '';
-        let status1 = '—';
-        let status2 = '—';
-        let status3 = '—';
-        let finalStatus = 'مستحق للفرصة الأولى';
-        
-        if(d1){
-            if(isStudentAbsentOnDate(studentId, d1)){
-                status1 = 'غياب';
-                finalStatus = 'له محاولة بالفرصة الثانية';
-                if(d2){
-                    if(isStudentAbsentOnDate(studentId, d2)){
-                        status2 = 'غياب';
-                        finalStatus = 'له محاولة بالفرصة الثالثة';
-                        if(d3){
-                            if(isStudentAbsentOnDate(studentId, d3)){
-                                status3 = 'غياب';
-                                finalStatus = 'دور ثان';
-                            } else {
-                                status3 = 'حاضر';
-                                finalStatus = 'أدى الفرصة الثالثة';
-                            }
-                        }
-                    } else {
-                        status2 = 'حاضر';
-                        finalStatus = 'أدى الفرصة الثانية';
-                    }
-                }
-            } else {
-                status1 = 'حاضر';
-                finalStatus = 'أدى الفرصة الأولى';
-            }
-        }
-        return { status1, status2, status3, finalStatus };
-    }
-    
-    function canManageEvaluations(){
-        return currentUser && (currentUser.role === 'room' || currentUser.role === 'super' || (ROLES[currentUser.role]?.perms || []).includes('manage_evaluations') || (ROLES[currentUser.role]?.perms || []).includes('all'));
-    }
-    
-    function canViewEvaluations(){
-        return currentUser && (canManageEvaluations() || currentUser.role === 'teacher' || (ROLES[currentUser.role]?.perms || []).includes('view_evaluations'));
-    }
-    
-    function renderEvaluationsPage(c){
-        if(!canViewEvaluations()){
-            showAlert('ليس لديك صلاحية عرض جداول التقييمات', 'warning');
-            showPage(currentUser.role === 'teacher' ? 'reports' : 'dashboard');
-            return;
-        }
-        
-        const canManage = canManageEvaluations();
-        
-        c.innerHTML = `
-            <div class="top-bar">
-                <div class="page-title">
-                    <h1><i class="fas fa-clipboard-list" style="color:var(--purple)"></i> جداول التقييمات</h1>
-                    ${getBreadcrumb()}
-                </div>
-                <div class="btn-group">
-                    ${canManage ? `<button class="btn btn-success btn-sm" onclick="openEvaluationModal()">
-                        <i class="fas fa-plus"></i> إنشاء جدول تقييم
-                    </button>` : ''}
-                    <button class="btn btn-primary btn-sm" onclick="printEvaluationsList()">
-                        <i class="fas fa-print"></i> طباعة القائمة
-                    </button>
-                    ${canManage ? `<button class="btn btn-info btn-sm" onclick="exportEvaluationsToExcel()">
-                        <i class="fas fa-file-excel"></i> تصدير
-                    </button>` : ''}
-                </div>
-            </div>
-            <div class="filters-bar">
-                <div class="filter-group" style="min-width:160px">
-                    <label>البرنامج (التخصص)</label>
-                    <select class="form-control" id="evalFilterProgram" onchange="renderEvaluationsTable()">
-                        <option value="">الكل</option>
-                        ${SPECIALTIES.map(sp => `<option value="${sp}">${sp}</option>`).join('')}
-                    </select>
-                </div>
-                <div class="filter-group" style="min-width:120px">
-                    <label>الصف</label>
-                    <select class="form-control" id="evalFilterGrade" onchange="renderEvaluationsTable()">
-                        <option value="">الكل</option>
-                        <option value="الأول">الأول</option>
-                        <option value="الثاني">الثاني</option>
-                        <option value="الثالث">الثالث</option>
-                    </select>
-                </div>
-                <div class="filter-group" style="min-width:140px">
-                    <label>اسم الوحدة</label>
-                    <input type="text" class="form-control" id="evalFilterUnit" placeholder="بحث بالوحدة..." oninput="renderEvaluationsTable()">
-                </div>
-                <div class="filter-group" style="min-width:100px">
-                    <label>رقم المخرج</label>
-                    <input type="text" class="form-control" id="evalFilterOutput" placeholder="رقم المخرج..." oninput="renderEvaluationsTable()">
-                </div>
-                <div class="filter-group" style="min-width:120px">
-                    <label>نوع المخرج</label>
-                    <select class="form-control" id="evalFilterType" onchange="renderEvaluationsTable()">
-                        <option value="">الكل</option>
-                        <option value="دليل أداء">دليل أداء</option>
-                        <option value="دليل منتج">دليل منتج</option>
-                        <option value="دليل تساؤل">دليل تساؤل</option>
-                    </select>
-                </div>
-            </div>
-            <div class="content-card">
-                <div class="card-header">
-                    <h3>قائمة جداول التقييمات</h3>
-                    <span class="badge badge-purple" id="evalCount">0</span>
-                </div>
-                <div class="card-body" style="padding:0">
-                    <div class="table-wrap">
-                        <table class="data-table" id="evaluationsTable">
-                            <thead>
-                                <tr>
-                                    <th onclick="sortEvalTable('program')">اسم البرنامج ${getEvalSortIcon('program')}</th>
-                                    <th onclick="sortEvalTable('grade')">الصف ${getEvalSortIcon('grade')}</th>
-                                    <th onclick="sortEvalTable('unit')">اسم الوحدة ${getEvalSortIcon('unit')}</th>
-                                    <th onclick="sortEvalTable('outputNo')">رقم المخرج ${getEvalSortIcon('outputNo')}</th>
-                                    <th onclick="sortEvalTable('outputType')">نوع المخرج ${getEvalSortIcon('outputType')}</th>
-                                    <th>الفرصة الأولى</th>
-                                    <th>الفرصة الثانية</th>
-                                    <th>الفرصة الثالثة</th>
-                                    <th>الإجراءات</th>
-                                </tr>
-                            </thead>
-                            <tbody id="evaluationsTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div id="evalStudentsSection" style="display:none;margin-top:1rem">
-                <div class="content-card">
-                    <div class="card-header">
-                        <h3 id="evalStudentsTitle">نتائج الطلاب حسب الغياب</h3>
-                        <div class="btn-group">
-                            <button class="btn btn-primary btn-sm" onclick="printEvalStudents()"><i class="fas fa-print"></i> طباعة نتائج الطلاب</button>
-                            <button class="btn btn-outline btn-sm" onclick="document.getElementById('evalStudentsSection').style.display='none'"><i class="fas fa-times"></i> إغلاق</button>
-                        </div>
-                    </div>
-                    <div class="card-body" style="padding:0">
-                        <div class="table-wrap">
-                            <table class="data-table" id="evalStudentsTable">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>اسم الطالب</th>
-                                        <th>كود الطالب</th>
-                                        <th>الصف</th>
-                                        <th>التخصص</th>
-                                        <th>الفرصة الأولى</th>
-                                        <th>الفرصة الثانية</th>
-                                        <th>الفرصة الثالثة</th>
-                                        <th>الحالة النهائية</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="evalStudentsTableBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        renderEvaluationsTable();
-    }
-    
-    function sortEvalTable(column) {
-        if (evalSortConfig.column === column) {
-            evalSortConfig.direction = evalSortConfig.direction === 'asc' ? 'desc' : 'asc';
-        } else {
-            evalSortConfig.column = column;
-            evalSortConfig.direction = 'asc';
-        }
-        renderEvaluationsTable();
-    }
-    
-    function getEvalSortIcon(column) {
-        if (evalSortConfig.column !== column) return '<i class="fas fa-sort sort-icon"></i>';
-        return evalSortConfig.direction === 'asc' ?
-            '<i class="fas fa-sort-up sort-icon" style="color:var(--primary)"></i>' :
-            '<i class="fas fa-sort-down sort-icon" style="color:var(--primary)"></i>';
-    }
-    
-    function renderEvaluationsTable(){
-        let list = getFilteredEvaluations();
-        let programF = document.getElementById('evalFilterProgram')?.value || '';
-        let gradeF = document.getElementById('evalFilterGrade')?.value || '';
-        let unitF = (document.getElementById('evalFilterUnit')?.value || '').toLowerCase();
-        let outputF = (document.getElementById('evalFilterOutput')?.value || '').toLowerCase();
-        let typeF = document.getElementById('evalFilterType')?.value || '';
-        
-        list = list.filter(e => {
-            if(programF && e.program !== programF) return false;
-            if(gradeF && e.grade !== gradeF) return false;
-            if(unitF && !(e.unit || '').toLowerCase().includes(unitF)) return false;
-            if(outputF && !(e.outputNo || '').toLowerCase().includes(outputF)) return false;
-            if(typeF && e.outputType !== typeF) return false;
-            return true;
-        });
-        
-        if (evalSortConfig.column) {
-            list.sort((a,b) => {
-                let aVal = a[evalSortConfig.column] || '';
-                let bVal = b[evalSortConfig.column] || '';
-                if (typeof aVal === 'string') {
-                    return evalSortConfig.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-                }
-                return evalSortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
-            });
-        }
-        
-        let tbody = document.getElementById('evaluationsTableBody');
-        let countEl = document.getElementById('evalCount');
-        if(countEl) countEl.textContent = list.length;
-        if(!tbody) return;
-        
-        const canManage = canManageEvaluations();
-        
-        if(list.length === 0){
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:1.5rem;color:var(--text-light)">${canManage ? 'لا توجد جداول تقييم. اضغط «إنشاء جدول تقييم» للبدء.' : 'لا توجد جداول تقييم معروضة حالياً.'}</td></tr>`;
-            return;
-        }
-        
-        tbody.innerHTML = list.map(e => {
-            const fmt = d => d ? new Date(d).toLocaleDateString('ar-EG') : '—';
-            return `
-                <tr>
-                    <td><strong style="font-size:.75rem">${e.program || '-'}</strong></td>
-                    <td><span class="badge badge-info">${e.grade || '-'}</span></td>
-                    <td>${e.unit || '-'}</td>
-                    <td><span class="badge badge-primary">${e.outputNo || '-'}</span></td>
-                    <td><span class="badge badge-purple">${e.outputType || '-'}</span></td>
-                    <td style="font-size:.75rem">${fmt(e.date1)}</td>
-                    <td style="font-size:.75rem">${fmt(e.date2)}</td>
-                    <td style="font-size:.75rem">${fmt(e.date3)}</td>
-                    <td>
-                        <button class="btn btn-sm btn-info" onclick="viewEvalStudents('${e.id}')" title="عرض نتائج الطلاب"><i class="fas fa-users"></i></button>
-                        ${canManage ? `<button class="btn btn-sm btn-primary" onclick="editEvaluation('${e.id}')" title="تعديل"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteEvaluation('${e.id}')" title="حذف"><i class="fas fa-trash"></i></button>` : ''}
-                        <button class="btn btn-sm btn-success" onclick="printSingleEvaluation('${e.id}')" title="طباعة"><i class="fas fa-print"></i></button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-    }
-    
-    function openEvaluationModal(id = null){
-        if(!canManageEvaluations()){
-            showAlert('ليس لديك صلاحية التعديل على جداول التقييمات', 'danger');
-            return;
-        }
-        const progSelect = document.getElementById('evalProgram');
-        progSelect.innerHTML = '<option value="">اختر البرنامج</option>' + SPECIALTIES.map(sp => `<option value="${sp}">${sp}</option>`).join('');
-        
-        document.getElementById('evalModalTitle').innerHTML = id ? '<i class="fas fa-clipboard-list"></i> تعديل جدول تقييم' : '<i class="fas fa-clipboard-list"></i> إضافة جدول تقييم';
-        document.getElementById('evalId').value = id || '';
-        document.getElementById('evalProgram').value = '';
-        document.getElementById('evalGrade').value = '';
-        document.getElementById('evalUnit').value = '';
-        document.getElementById('evalOutputNo').value = '';
-        document.getElementById('evalOutputType').value = '';
-        document.getElementById('evalDate1').value = '';
-        document.getElementById('evalDate2').value = '';
-        document.getElementById('evalDate3').value = '';
-        
-        if(id){
-            const e = evaluations.find(x => String(x.id) === String(id));
-            if(e){
-                document.getElementById('evalProgram').value = e.program || '';
-                document.getElementById('evalGrade').value = e.grade || '';
-                document.getElementById('evalUnit').value = e.unit || '';
-                document.getElementById('evalOutputNo').value = e.outputNo || '';
-                document.getElementById('evalOutputType').value = e.outputType || '';
-                document.getElementById('evalDate1').value = e.date1 || '';
-                document.getElementById('evalDate2').value = e.date2 || '';
-                document.getElementById('evalDate3').value = e.date3 || '';
-            }
-        }
-        document.getElementById('evaluationModal').classList.add('active');
-    }
-    
-    function editEvaluation(id){ openEvaluationModal(id); }
-    
-    async function saveEvaluation(){
-        if(!canManageEvaluations()){
-            showAlert('ليس لديك صلاحية التعديل على جداول التقييمات', 'danger');
-            return;
-        }
-        const id = document.getElementById('evalId').value;
-        const program = document.getElementById('evalProgram').value;
-        const grade = document.getElementById('evalGrade').value;
-        const unit = document.getElementById('evalUnit').value.trim();
-        const outputNo = document.getElementById('evalOutputNo').value.trim();
-        const outputType = document.getElementById('evalOutputType').value;
-        const date1 = document.getElementById('evalDate1').value;
-        const date2 = document.getElementById('evalDate2').value;
-        const date3 = document.getElementById('evalDate3').value;
-        
-        if(!program || !grade || !unit || !outputNo || !outputType || !date1){
-            showAlert('يرجى ملء جميع الحقول المطلوبة (البرنامج، الصف، الوحدة، رقم المخرج، النوع، وتاريخ الفرصة الأولى)', 'warning');
-            return;
-        }
-        
-        const data = {
-            program, grade, unit, outputNo, outputType,
-            date1, date2: date2 || '', date3: date3 || '',
-            admin: currentUser.admin || null,
-            school: currentUser.school || null,
-            createdBy: currentUser.uid,
-            updatedAt: new Date().toISOString()
-        };
-        
-        if(id){
-            const idx = evaluations.findIndex(e => String(e.id) === String(id));
-            if(idx >= 0){
-                evaluations[idx] = { ...evaluations[idx], ...data };
-                await saveData();
-                showAlert('تم تحديث جدول التقييم بنجاح', 'success');
-            }
-        } else {
-            const newId = Date.now() + Math.floor(Math.random() * 1000);
-            evaluations.push({ id: newId, ...data, createdAt: new Date().toISOString() });
-            await saveData();
-            showAlert('تم إنشاء جدول التقييم بنجاح', 'success');
-        }
-        closeModal('evaluationModal');
-        renderEvaluationsTable();
-    }
-    
-    async function deleteEvaluation(id){
-        if(!canManageEvaluations()){
-            showAlert('ليس لديك صلاحية حذف جداول التقييمات', 'danger');
-            return;
-        }
-        if(!confirm('هل أنت متأكد من حذف جدول التقييم هذا؟')) return;
-        evaluations = evaluations.filter(e => String(e.id) !== String(id));
-        await saveData();
-        renderEvaluationsTable();
-        const sec = document.getElementById('evalStudentsSection');
-        if(sec) sec.style.display = 'none';
-        showAlert('تم حذف جدول التقييم', 'info');
-    }
-    
-    function viewEvalStudents(evalId){
-        currentEvalViewId = evalId;
-        const e = evaluations.find(x => String(x.id) === String(evalId));
-        if(!e){ showAlert('جدول التقييم غير موجود', 'danger'); return; }
-        
-        let fs = getFilteredStudents().filter(s => s.specialty === e.program && s.grade === e.grade);
-        const section = document.getElementById('evalStudentsSection');
-        const title = document.getElementById('evalStudentsTitle');
-        const tbody = document.getElementById('evalStudentsTableBody');
-        if(!section || !tbody) return;
-        
-        title.textContent = `نتائج الطلاب — ${e.program} | ${e.grade} | ${e.unit} (مخرج ${e.outputNo})`;
-        section.style.display = 'block';
-        
-        if(fs.length === 0){
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:1.5rem;color:var(--text-light)">لا يوجد طلاب مطابقين لهذا البرنامج والصف</td></tr>`;
-            return;
-        }
-        
-        tbody.innerHTML = fs.map((s, idx) => {
-            const st = getStudentEvalStatus(s.id, e);
-            const fullName = s.fullName || ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || '—';
-            const badge = (txt) => {
-                if(txt === 'غياب') return `<span class="badge badge-danger">غياب</span>`;
-                if(txt === 'حاضر') return `<span class="badge badge-success">حاضر</span>`;
-                if(txt === 'دور ثان') return `<span class="badge badge-danger"><i class="fas fa-exclamation"></i> دور ثان</span>`;
-                if(txt.includes('محاولة')) return `<span class="badge badge-warning">${txt}</span>`;
-                if(txt.includes('أدى')) return `<span class="badge badge-success">${txt}</span>`;
-                return `<span class="badge badge-info">${txt}</span>`;
-            };
-            return `<tr>
-                <td>${idx+1}</td>
-                <td><strong>${fullName}</strong></td>
-                <td>${s.code || '-'}</td>
-                <td><span class="badge badge-info">${s.grade || '-'}</span></td>
-                <td style="font-size:.7rem">${(s.specialty || '').substring(0,18)}${(s.specialty||'').length>18?'...':''}</td>
-                <td>${badge(st.status1)}</td>
-                <td>${badge(st.status2)}</td>
-                <td>${badge(st.status3)}</td>
-                <td>${badge(st.finalStatus)}</td>
-            </tr>`;
-        }).join('');
-        
-        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    
-    function printEvaluationsList(){
-        const table = document.getElementById('evaluationsTable');
-        if(!table){ showAlert('لا توجد بيانات', 'warning'); return; }
-        const win = window.open('', '_blank');
-        if(!win){ showAlert('يرجى السماح بالنوافذ المنبثقة', 'warning'); return; }
-        const today = new Date().toLocaleDateString('ar-EG', {year:'numeric', month:'long', day:'numeric'});
-        win.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>جداول التقييمات</title>
-        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-        <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Cairo',sans-serif;padding:1.5rem;color:#1e293b}
-        .header{text-align:center;border-bottom:3px solid #7c3aed;padding-bottom:.8rem;margin-bottom:1rem}
-        .header h1{color:#7c3aed;font-size:1.3rem}
-        table{width:100%;border-collapse:collapse;font-size:.75rem}th,td{border:1px solid #e2e8f0;padding:.4rem .5rem;text-align:right}
-        th{background:#f0f4f8;color:#7c3aed;font-weight:700}
-        .footer{margin-top:1.5rem;text-align:center;font-size:.65rem;color:#94a3b8}
-        @media print{body{padding:1rem}}</style></head><body>
-        <div class="header"><h1>جداول التقييمات</h1><p>${currentUser.admin||''} — ${currentUser.school||''} | ${today}</p></div>
-        ${table.outerHTML.replace(/onclick="[^"]*"/g,'').replace(/<button[^>]*>.*?<\/button>/gs,'')}
-        <div class="footer">نظام شؤون الطلبة — التعليم الفني بالإسماعيلية</div>
-        </body></html>`);
-        win.document.close();
-        win.onload = () => { win.focus(); win.print(); };
-        setTimeout(() => { try{ win.focus(); win.print(); }catch(e){} }, 500);
-    }
-    
-    function printSingleEvaluation(evalId){
-        viewEvalStudents(evalId);
-        setTimeout(() => printEvalStudents(), 300);
-    }
-    
-    function printEvalStudents(){
-        const table = document.getElementById('evalStudentsTable');
-        const title = document.getElementById('evalStudentsTitle')?.textContent || 'نتائج التقييم';
-        if(!table){ showAlert('لا توجد بيانات للطباعة', 'warning'); return; }
-        const win = window.open('', '_blank');
-        if(!win){ showAlert('يرجى السماح بالنوافذ المنبثقة', 'warning'); return; }
-        const today = new Date().toLocaleDateString('ar-EG', {year:'numeric', month:'long', day:'numeric'});
-        win.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>${title}</title>
-        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-        <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Cairo',sans-serif;padding:1.5rem;color:#1e293b}
-        .header{text-align:center;border-bottom:3px solid #7c3aed;padding-bottom:.8rem;margin-bottom:1rem}
-        .header h1{color:#7c3aed;font-size:1.15rem}
-        table{width:100%;border-collapse:collapse;font-size:.72rem}th,td{border:1px solid #e2e8f0;padding:.35rem .45rem;text-align:right}
-        th{background:#f0f4f8;color:#7c3aed;font-weight:700}
-        .badge{display:inline-block;padding:.1rem .35rem;border-radius:8px;font-size:.65rem;font-weight:700}
-        .badge-danger{background:#fee2e2;color:#dc2626}.badge-success{background:#dcfce7;color:#16a34a}
-        .badge-warning{background:#fef3c7;color:#b45309}.badge-info{background:#e0f2fe;color:#0891b2}
-        .footer{margin-top:1.5rem;text-align:center;font-size:.65rem;color:#94a3b8}
-        @media print{body{padding:.8rem}}</style></head><body>
-        <div class="header"><h1>${title}</h1><p>${currentUser.admin||''} — ${currentUser.school||''} | تاريخ الطباعة: ${today}</p>
-        <p style="font-size:.75rem;margin-top:.3rem;color:#64748b">ملاحظة: الحالة تُحسب آلياً من سجلات الغياب — غياب بالفرصة = يحق له المحاولة التالية — غياب الثلاث فرص = دور ثان</p></div>
-        ${table.outerHTML}
-        <div class="footer">نظام شؤون الطلبة — التعليم الفني بالإسماعيلية</div>
-        </body></html>`);
-        win.document.close();
-        win.onload = () => { win.focus(); win.print(); };
-        setTimeout(() => { try{ win.focus(); win.print(); }catch(e){} }, 500);
-    }
-    
-    function exportEvaluationsToExcel(){
-        let list = getFilteredEvaluations();
-        let programF = document.getElementById('evalFilterProgram')?.value || '';
-        let gradeF = document.getElementById('evalFilterGrade')?.value || '';
-        let unitF = (document.getElementById('evalFilterUnit')?.value || '').toLowerCase();
-        let outputF = (document.getElementById('evalFilterOutput')?.value || '').toLowerCase();
-        let typeF = document.getElementById('evalFilterType')?.value || '';
-        list = list.filter(e => {
-            if(programF && e.program !== programF) return false;
-            if(gradeF && e.grade !== gradeF) return false;
-            if(unitF && !(e.unit || '').toLowerCase().includes(unitF)) return false;
-            if(outputF && !(e.outputNo || '').toLowerCase().includes(outputF)) return false;
-            if(typeF && e.outputType !== typeF) return false;
-            return true;
-        });
-        if(list.length === 0){ showAlert('لا توجد بيانات للتصدير', 'warning'); return; }
-        let data = [['#','اسم البرنامج','الصف','اسم الوحدة','رقم المخرج','نوع المخرج','تاريخ الفرصة الأولى','تاريخ الفرصة الثانية','تاريخ الفرصة الثالثة','المدرسة','الإدارة']];
-        list.forEach((e,i) => {
-            data.push([i+1, e.program||'', e.grade||'', e.unit||'', e.outputNo||'', e.outputType||'', e.date1||'', e.date2||'', e.date3||'', e.school||'', e.admin||'']);
-        });
-        let ws = XLSX.utils.aoa_to_sheet(data);
-        let wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'جداول التقييمات');
-        ws['!cols'] = [{wch:5},{wch:28},{wch:8},{wch:22},{wch:12},{wch:12},{wch:14},{wch:14},{wch:14},{wch:28},{wch:12}];
-        XLSX.writeFile(wb, 'جداول_التقييمات.xlsx');
-        showAlert('تم التصدير بنجاح', 'success');
-    }
-    
     // ======== دوال التنبيهات ========
     function showAlert(message,type='info'){
         let container=document.getElementById('alertContainer');
@@ -3665,7 +3304,6 @@
     document.getElementById('userModal').addEventListener('click', function(e){ if(e.target===this) closeModal('userModal'); });
     document.getElementById('studentCardModal').addEventListener('click', function(e){ if(e.target===this) closeModal('studentCardModal'); });
     document.getElementById('interviewModal').addEventListener('click', function(e){ if(e.target===this) closeModal('interviewModal'); });
-    document.getElementById('evaluationModal').addEventListener('click', function(e){ if(e.target===this) closeModal('evaluationModal'); });
     document.getElementById('loginPass').addEventListener('keypress', function(e){ if(e.key==='Enter') loginWithFirebase(); });
     
     console.log('✅ النظام جاهز للعمل مع Firebase!');
