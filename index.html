@@ -640,6 +640,66 @@
     </div>
 </div>
 
+<!-- مودال جدول التقييم -->
+<div class="modal-overlay" id="assessmentModal">
+    <div class="modal">
+        <div class="modal-header"><h3 id="assessmentModalTitle"><i class="fas fa-clipboard-list"></i> إضافة جدول تقييم</h3><button class="modal-close" onclick="closeModal('assessmentModal')"><i class="fas fa-times"></i></button></div>
+        <div class="modal-body">
+            <input type="hidden" id="assessmentId">
+            <div class="form-group">
+                <label class="form-label">اسم البرنامج (التخصص) <span style="color:var(--danger)">*</span></label>
+                <select class="form-control" id="assessmentSpecialty">
+                    <option value="">اختر البرنامج</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">الصف <span style="color:var(--danger)">*</span></label>
+                <select class="form-control" id="assessmentGrade">
+                    <option value="">اختر</option>
+                    <option value="الأول">الأول</option>
+                    <option value="الثاني">الثاني</option>
+                    <option value="الثالث">الثالث</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">اسم الوحدة <span style="color:var(--danger)">*</span></label>
+                <input type="text" class="form-control" id="assessmentUnitName" placeholder="اسم الوحدة">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">رقم المخرج <span style="color:var(--danger)">*</span></label>
+                    <input type="text" class="form-control" id="assessmentOutputNumber" placeholder="مثال: 1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">نوع المخرج <span style="color:var(--danger)">*</span></label>
+                    <select class="form-control" id="assessmentOutputType">
+                        <option value="" disabled selected>اختر نوع المخرج...</option>
+                        <option value="دليل أداء بطاقة ملاحظة">دليل أداء بطاقة ملاحظة</option>
+                        <option value="دليل منتج بطاقة فحص أو تقرير">دليل منتج بطاقة فحص أو تقرير</option>
+                        <option value="دليل تساؤل اختبار تحريري">دليل تساؤل اختبار تحريري</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">تاريخ التقييم — الفرصة الأولى <span style="color:var(--danger)">*</span></label>
+                <input type="date" class="form-control" id="assessmentDate1">
+            </div>
+            <div class="form-group">
+                <label class="form-label">تاريخ التقييم — الفرصة الثانية</label>
+                <input type="date" class="form-control" id="assessmentDate2">
+            </div>
+            <div class="form-group">
+                <label class="form-label">تاريخ التقييم — الفرصة الثالثة</label>
+                <input type="date" class="form-control" id="assessmentDate3">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline btn-sm" onclick="closeModal('assessmentModal')">إلغاء</button>
+            <button class="btn btn-primary btn-sm" onclick="saveAssessment()"><i class="fas fa-save"></i> حفظ</button>
+        </div>
+    </div>
+</div>
+
 <script>
     // ======== البيانات الثابتة ========
     const ADMINISTRATIONS=["شمال","جنوب","فايد","القنطرة غرب","القنطرة شرق","ابو صوير","القصاصين","التل الكبير"];
@@ -702,7 +762,7 @@
     "فني ديزل معدات ثقيلة",
     "فني لوجستيات",
     "فني زخرفه و اعلان",
-    "فني نجارة اثاث",
+    <!-- "فني نجارة اثاث", -->
     "فني نجارة أثاث",
     "فنی زخرفه وإعلان",
     "فنى هندسة زراعية",
@@ -721,7 +781,7 @@
         admin:{label:'مسؤول إدارة',icon:'fa-building',color:'#7c3aed',perms:['view_admin','view_reports','view_warnings','view_notifications']},
         affairs:{label:'مسؤول شؤون طلبة',icon:'fa-user-tie',color:'#1e3a8a',perms:['manage_students','manage_attendance','view_warnings','view_notifications']},
         social:{label:'أخصائي اجتماعي',icon:'fa-hands-helping',color:'#16a34a',perms:['view_warnings','view_reports','view_notifications','manage_interviews']},
-        room:{label:'مسؤول الغرفة',icon:'fa-door-open',color:'#8b5cf6',perms:['view_warnings','view_reports']},
+        room:{label:'مسؤول الغرفة',icon:'fa-door-open',color:'#8b5cf6',perms:['view_warnings','view_reports','manage_assessments']},
         teacher:{label:'معلم الحصة',icon:'fa-chalkboard-teacher',color:'#f59e0b',perms:['view_teacher_warnings','view_teacher_reports']}
     };
     
@@ -731,6 +791,7 @@
     let attendance={};
     let notifications=[];
     let interviews=[];
+    let assessments=[];
     let previewData=[];
     let currentPage='dashboard';
     let currentWarningTab='all';
@@ -741,6 +802,8 @@
     let interviewSortConfig = {column:'date', direction:'desc'};
     let userSortConfig = {column:null, direction:'asc'};  // متغير ترتيب المستخدمين
     let warningSortConfig = {column:null, direction:'asc'};
+    let assessmentSortConfig = {column:null, direction:'asc'};
+    let currentAssessmentViewId = null;
     
     // ======== السنوات الدراسية ========
     const DEFAULT_YEAR = '2025-2026';
@@ -828,6 +891,7 @@
             await set(ref(db, `academicYears/${newYear}/attendance`), {});
             await set(ref(db, `academicYears/${newYear}/notifications`), {});
             await set(ref(db, `academicYears/${newYear}/interviews`), {});
+            await set(ref(db, `academicYears/${newYear}/assessments`), {});
             showAlert('✅ تم إنشاء السنة الدراسية ' + newYear + ' بنجاح (البيانات القديمة محفوظة)', 'success');
             return true;
         } catch (e) {
@@ -849,6 +913,7 @@
         attendance = {};
         notifications = [];
         interviews = [];
+        assessments = [];
         yearListenersAttached = false;
         showAlert('جاري تحميل بيانات العام ' + year + '...', 'info');
         await loadAllData();
@@ -994,6 +1059,15 @@
                 interviews = [];
             }
             
+            const assessmentsRef = ref(db, yearPath('assessments'));
+            const assessmentsSnap = await get(assessmentsRef);
+            if (assessmentsSnap.exists()) {
+                const data = assessmentsSnap.val();
+                assessments = Object.values(data || {}).filter(Boolean);
+            } else {
+                assessments = [];
+            }
+            
             setupRealtimeListeners();
             
             isFirebaseReady = true;
@@ -1039,6 +1113,7 @@
                 if (currentPage === 'dashboard') renderDashboardPage(document.getElementById('mainContent'));
                 if (currentPage === 'warnings') renderWarningsTable();
                 if (currentPage === 'reports') generateReport();
+                if (currentPage === 'assessments') renderAssessmentsPage(document.getElementById('mainContent'));
             }
         });
         
@@ -1068,6 +1143,19 @@
                 renderInterviewsPage(document.getElementById('mainContent'));
             }
         });
+        
+        const assessmentsRef = ref(db, yearPath('assessments'));
+        onValue(assessmentsRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                assessments = Object.values(data || {}).filter(Boolean);
+            } else {
+                assessments = [];
+            }
+            if (currentUser && currentPage === 'assessments') {
+                renderAssessmentsPage(document.getElementById('mainContent'));
+            }
+        });
         yearListenersAttached = true;
     }
     
@@ -1091,6 +1179,11 @@
             const interviewObj = {};
             interviews.forEach(i => { if (i && i.id != null) interviewObj[i.id] = i; });
             await set(interviewRef, interviewObj);
+            
+            const assessmentsRef = ref(db, yearPath('assessments'));
+            const assessmentsObj = {};
+            assessments.forEach(a => { if (a && a.id != null) assessmentsObj[a.id] = a; });
+            await set(assessmentsRef, assessmentsObj);
             
             showAlert('✅ تم الحفظ في Firebase بنجاح (' + currentYear + ')','success');
         } catch (error) {
@@ -1374,6 +1467,7 @@
         attendance={};
         notifications=[];
         interviews=[];
+        assessments=[];
         document.getElementById('loginScreen').classList.remove('hidden');
         document.getElementById('appContainer').classList.remove('visible');
         document.getElementById('loginRole').value='';
@@ -1455,6 +1549,10 @@
             items.push({page: 'interviews', icon: 'fa-handshake', label: 'مقابلات ولي الأمر'});
         }
         
+        if (isRoom && perms.includes('manage_assessments')) {
+            items.push({page: 'assessments', icon: 'fa-clipboard-list', label: 'جداول التقييمات'});
+        }
+        
         if (!isTeacher && (perms.includes('view_warnings') || perms.includes('all') || perms.includes('view_teacher_warnings'))) {
             items.push({page: 'warnings', icon: 'fa-exclamation-triangle', label: 'الإنذارات'});
         }
@@ -1500,6 +1598,7 @@
             case'reports':renderReportsPage(c);break;
             case'notifications':renderNotificationsPage(c);break;
             case'interviews':renderInterviewsPage(c);break;
+            case'assessments':renderAssessmentsPage(c);break;
             default:renderDashboardPage(c);
         }
         if (window.innerWidth <= 1024) {
@@ -3284,6 +3383,430 @@
         }, 500);
     }
     
+    // ======== دوال جداول التقييمات (مسؤول الغرفة) ========
+    function getFilteredAssessments(){
+        if(!currentUser || currentUser.role !== 'room') return [];
+        return assessments.filter(a => a.admin === currentUser.admin && a.school === currentUser.school);
+    }
+    
+    function getAssessmentOpportunityStatus(studentId, dateStr){
+        if(!dateStr) return { text: '-', class: 'badge-info', isAbsent: false };
+        if(!attendance[dateStr] || attendance[dateStr][studentId] === undefined){
+            return { text: 'حاضر', class: 'badge-success', isAbsent: false };
+        }
+        let st = attendance[dateStr][studentId];
+        if(st === 'absent') return { text: 'غياب', class: 'badge-danger', isAbsent: true };
+        if(st === 'excused') return { text: 'غياب بعذر', class: 'badge-warning', isAbsent: true };
+        return { text: 'حاضر', class: 'badge-success', isAbsent: false };
+    }
+    
+    function computeStudentAssessmentResult(studentId, assessment){
+        let o1 = getAssessmentOpportunityStatus(studentId, assessment.date1);
+        let o2 = getAssessmentOpportunityStatus(studentId, assessment.date2);
+        let o3 = getAssessmentOpportunityStatus(studentId, assessment.date3);
+        let finalLabel = '';
+        if(o1.isAbsent && assessment.date2){
+            if(o2.isAbsent && assessment.date3){
+                if(o3.isAbsent) finalLabel = 'دور ثان';
+                else finalLabel = o3.text;
+            } else if(o2.isAbsent) {
+                finalLabel = assessment.date3 ? 'له الفرصة الثالثة' : 'دور ثان';
+            } else {
+                finalLabel = o2.text;
+            }
+        } else if(o1.isAbsent && !assessment.date2){
+            finalLabel = 'دور ثان';
+        } else {
+            finalLabel = o1.text;
+        }
+        if(o1.isAbsent && o2.isAbsent && o3.isAbsent) finalLabel = 'دور ثان';
+        return { o1, o2, o3, finalLabel };
+    }
+    
+    function renderAssessmentsPage(c){
+        if(currentUser.role !== 'room'){
+            showAlert('جداول التقييمات مخصصة لمسؤول الغرفة فقط', 'danger');
+            showPage('dashboard');
+            return;
+        }
+        
+        if(currentAssessmentViewId){
+            renderAssessmentDetailView(c, currentAssessmentViewId);
+            return;
+        }
+        
+        let list = getFilteredAssessments();
+        let specialtiesInSchool = [...new Set(getFilteredStudents().map(s => s.specialty).filter(Boolean))].sort();
+        let units = [...new Set(list.map(a => a.unitName).filter(Boolean))].sort();
+        let outputs = [...new Set(list.map(a => a.outputNumber).filter(Boolean))].sort();
+        
+        c.innerHTML = `
+            <div class="top-bar">
+                <div class="page-title">
+                    <h1><i class="fas fa-clipboard-list" style="color:var(--purple)"></i> جداول التقييمات</h1>
+                    ${getBreadcrumb()}
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-success btn-sm" onclick="openAssessmentModal()">
+                        <i class="fas fa-plus"></i> إنشاء جدول تقييم
+                    </button>
+                </div>
+            </div>
+            <div class="warning-banner">
+                <i class="fas fa-info-circle"></i>
+                <div class="warning-banner-text">
+                    <h4>ربط تلقائي بسجل الغياب</h4>
+                    <p>إذا سُجّل غياب الطالب في تاريخ الفرصة الأولى يظهر «غياب» وله محاولة بالفرصة الثانية، وهكذا. الغياب في الفرصة الثالثة = دور ثان.</p>
+                </div>
+            </div>
+            <div class="filters-bar">
+                <div class="filter-group" style="min-width:140px">
+                    <label>البرنامج (التخصص)</label>
+                    <select class="form-control" id="assessFilterSpecialty" onchange="renderAssessmentsList()">
+                        <option value="">الكل</option>
+                        ${specialtiesInSchool.map(sp => `<option value="${sp}">${sp}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-group" style="min-width:120px">
+                    <label>اسم الوحدة</label>
+                    <select class="form-control" id="assessFilterUnit" onchange="renderAssessmentsList()">
+                        <option value="">الكل</option>
+                        ${units.map(u => `<option value="${u}">${u}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-group" style="min-width:100px">
+                    <label>رقم المخرج</label>
+                    <select class="form-control" id="assessFilterOutput" onchange="renderAssessmentsList()">
+                        <option value="">الكل</option>
+                        ${outputs.map(o => `<option value="${o}">${o}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-group" style="min-width:100px">
+                    <label>الصف</label>
+                    <select class="form-control" id="assessFilterGrade" onchange="renderAssessmentsList()">
+                        <option value="">الكل</option>
+                        <option value="الأول">الأول</option>
+                        <option value="الثاني">الثاني</option>
+                        <option value="الثالث">الثالث</option>
+                    </select>
+                </div>
+            </div>
+            <div class="content-card">
+                <div class="card-header">
+                    <h3>جداول التقييم المسجلة</h3>
+                    <span class="badge badge-purple" id="assessmentsCount">${list.length}</span>
+                </div>
+                <div class="card-body" style="padding:0">
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>البرنامج</th>
+                                    <th>الصف</th>
+                                    <th>الوحدة</th>
+                                    <th>رقم المخرج</th>
+                                    <th>نوع المخرج</th>
+                                    <th>الفرصة الأولى</th>
+                                    <th>الفرصة الثانية</th>
+                                    <th>الفرصة الثالثة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assessmentsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+        renderAssessmentsList();
+    }
+    
+    function renderAssessmentsList(){
+        let tbody = document.getElementById('assessmentsTableBody');
+        if(!tbody) return;
+        let specialtyF = document.getElementById('assessFilterSpecialty')?.value || '';
+        let unitF = document.getElementById('assessFilterUnit')?.value || '';
+        let outputF = document.getElementById('assessFilterOutput')?.value || '';
+        let gradeF = document.getElementById('assessFilterGrade')?.value || '';
+        
+        let list = getFilteredAssessments().filter(a => {
+            if(specialtyF && a.specialty !== specialtyF) return false;
+            if(unitF && a.unitName !== unitF) return false;
+            if(outputF && a.outputNumber !== outputF) return false;
+            if(gradeF && a.grade !== gradeF) return false;
+            return true;
+        });
+        
+        let countEl = document.getElementById('assessmentsCount');
+        if(countEl) countEl.textContent = list.length;
+        
+        if(list.length === 0){
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:1.5rem;color:var(--text-light)">لا توجد جداول تقييم. اضغط «إنشاء جدول تقييم» للبدء.</td></tr>`;
+            return;
+        }
+        
+        tbody.innerHTML = list.map(a => {
+            let d1 = a.date1 ? formatDateArabic(a.date1) : '-';
+            let d2 = a.date2 ? formatDateArabic(a.date2) : '-';
+            let d3 = a.date3 ? formatDateArabic(a.date3) : '-';
+            return `<tr>
+                <td><span class="badge badge-primary" style="font-size:.65rem">${a.specialty || '-'}</span></td>
+                <td><span class="badge badge-info">${a.grade || '-'}</span></td>
+                <td style="font-size:.8rem">${a.unitName || '-'}</td>
+                <td><strong>${a.outputNumber || '-'}</strong></td>
+                <td style="font-size:.75rem">${a.outputType || '-'}</td>
+                <td style="font-size:.7rem">${d1}</td>
+                <td style="font-size:.7rem">${d2}</td>
+                <td style="font-size:.7rem">${d3}</td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="viewAssessmentTable(${a.id})" title="عرض جدول الطلاب"><i class="fas fa-table"></i></button>
+                    <button class="btn btn-sm btn-primary" onclick="editAssessment(${a.id})" title="تعديل"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteAssessment(${a.id})" title="حذف"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+    
+    function openAssessmentModal(id = null){
+        if(currentUser.role !== 'room'){
+            showAlert('صلاحية جداول التقييم لمسؤول الغرفة فقط', 'danger');
+            return;
+        }
+        let spSelect = document.getElementById('assessmentSpecialty');
+        let specialtiesInSchool = [...new Set(getFilteredStudents().map(s => s.specialty).filter(Boolean))].sort();
+        if(specialtiesInSchool.length === 0) specialtiesInSchool = SPECIALTIES;
+        spSelect.innerHTML = '<option value="">اختر البرنامج</option>' + specialtiesInSchool.map(sp => `<option value="${sp}">${sp}</option>`).join('');
+        
+        document.getElementById('assessmentId').value = id || '';
+        document.getElementById('assessmentModalTitle').innerHTML = id ? '<i class="fas fa-clipboard-list"></i> تعديل جدول تقييم' : '<i class="fas fa-clipboard-list"></i> إضافة جدول تقييم';
+        
+        if(id){
+            let a = assessments.find(x => x.id == id);
+            if(a){
+                document.getElementById('assessmentSpecialty').value = a.specialty || '';
+                document.getElementById('assessmentGrade').value = a.grade || '';
+                document.getElementById('assessmentUnitName').value = a.unitName || '';
+                document.getElementById('assessmentOutputNumber').value = a.outputNumber || '';
+                document.getElementById('assessmentOutputType').value = a.outputType || '';
+                document.getElementById('assessmentDate1').value = a.date1 || '';
+                document.getElementById('assessmentDate2').value = a.date2 || '';
+                document.getElementById('assessmentDate3').value = a.date3 || '';
+            }
+        } else {
+            document.getElementById('assessmentSpecialty').value = '';
+            document.getElementById('assessmentGrade').value = '';
+            document.getElementById('assessmentUnitName').value = '';
+            document.getElementById('assessmentOutputNumber').value = '';
+            document.getElementById('assessmentOutputType').value = '';
+            document.getElementById('assessmentDate1').value = '';
+            document.getElementById('assessmentDate2').value = '';
+            document.getElementById('assessmentDate3').value = '';
+        }
+        document.getElementById('assessmentModal').classList.add('active');
+    }
+    
+    function editAssessment(id){
+        openAssessmentModal(id);
+    }
+    
+    async function saveAssessment(){
+        let id = document.getElementById('assessmentId').value;
+        let specialty = document.getElementById('assessmentSpecialty').value;
+        let grade = document.getElementById('assessmentGrade').value;
+        let unitName = document.getElementById('assessmentUnitName').value.trim();
+        let outputNumber = document.getElementById('assessmentOutputNumber').value.trim();
+        let outputType = document.getElementById('assessmentOutputType').value.trim();
+        let date1 = document.getElementById('assessmentDate1').value;
+        let date2 = document.getElementById('assessmentDate2').value;
+        let date3 = document.getElementById('assessmentDate3').value;
+        
+        if(!specialty || !grade || !unitName || !outputNumber || !outputType || !date1){
+            showAlert('يرجى ملء جميع الحقول المطلوبة (البرنامج، الصف، الوحدة، المخرج، نوع المخرج، تاريخ الفرصة الأولى)', 'warning');
+            return;
+        }
+        
+        if(id){
+            let idx = assessments.findIndex(a => a.id == id);
+            if(idx >= 0){
+                assessments[idx] = {
+                    ...assessments[idx],
+                    specialty, grade, unitName, outputNumber, outputType,
+                    date1, date2: date2 || null, date3: date3 || null,
+                    updatedAt: new Date().toISOString()
+                };
+                await saveData();
+                showAlert('تم تحديث جدول التقييم بنجاح', 'success');
+            }
+        } else {
+            let newId = Date.now() + Math.floor(Math.random() * 1000);
+            assessments.push({
+                id: newId,
+                specialty, grade, unitName, outputNumber, outputType,
+                date1, date2: date2 || null, date3: date3 || null,
+                admin: currentUser.admin,
+                school: currentUser.school,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            });
+            await saveData();
+            showAlert('تم إنشاء جدول التقييم بنجاح', 'success');
+        }
+        closeModal('assessmentModal');
+        currentAssessmentViewId = null;
+        renderAssessmentsPage(document.getElementById('mainContent'));
+    }
+    
+    async function deleteAssessment(id){
+        if(!confirm('هل أنت متأكد من حذف جدول التقييم هذا؟')) return;
+        assessments = assessments.filter(a => a.id !== id);
+        await saveData();
+        if(currentAssessmentViewId == id) currentAssessmentViewId = null;
+        renderAssessmentsPage(document.getElementById('mainContent'));
+        showAlert('تم حذف جدول التقييم', 'info');
+    }
+    
+    function viewAssessmentTable(id){
+        currentAssessmentViewId = id;
+        renderAssessmentsPage(document.getElementById('mainContent'));
+    }
+    
+    function backToAssessmentsList(){
+        currentAssessmentViewId = null;
+        renderAssessmentsPage(document.getElementById('mainContent'));
+    }
+    
+    function renderAssessmentDetailView(c, assessmentId){
+        let a = assessments.find(x => x.id == assessmentId);
+        if(!a){
+            currentAssessmentViewId = null;
+            renderAssessmentsPage(c);
+            return;
+        }
+        
+        let studentsList = getFilteredStudents().filter(s => s.specialty === a.specialty && s.grade === a.grade);
+        
+        c.innerHTML = `
+            <div class="top-bar no-print">
+                <div class="page-title">
+                    <h1><i class="fas fa-table" style="color:var(--purple)"></i> جدول التقييم</h1>
+                    ${getBreadcrumb()}
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-outline btn-sm" onclick="backToAssessmentsList()"><i class="fas fa-arrow-right"></i> رجوع للقائمة</button>
+                    <button class="btn btn-primary btn-sm" onclick="printAssessmentTable()"><i class="fas fa-print"></i> طباعة</button>
+                    <button class="btn btn-success btn-sm" onclick="exportAssessmentToExcel()"><i class="fas fa-file-excel"></i> تصدير</button>
+                </div>
+            </div>
+            <div class="content-card print-area" id="assessmentPrintArea">
+                <div class="card-header">
+                    <div>
+                        <h3>جدول تقييم — ${a.specialty || ''} — صف ${a.grade || ''}</h3>
+                        <p style="font-size:.75rem;color:var(--text-light);margin-top:.2rem">
+                            الوحدة: <strong>${a.unitName || '-'}</strong> |
+                            رقم المخرج: <strong>${a.outputNumber || '-'}</strong> |
+                            نوع المخرج: <strong>${a.outputType || '-'}</strong>
+                        </p>
+                    </div>
+                </div>
+                <div class="card-body" style="padding:0">
+                    <div class="table-wrap">
+                        <table class="data-table" id="assessmentDetailTable">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>اسم الطالب</th>
+                                    <th>كود الطالب</th>
+                                    <th>الفرصة الأولى<br><small style="font-weight:400;color:var(--text-light)">${a.date1 ? formatDateArabic(a.date1) : '-'}</small></th>
+                                    <th>الفرصة الثانية<br><small style="font-weight:400;color:var(--text-light)">${a.date2 ? formatDateArabic(a.date2) : '-'}</small></th>
+                                    <th>الفرصة الثالثة<br><small style="font-weight:400;color:var(--text-light)">${a.date3 ? formatDateArabic(a.date3) : '-'}</small></th>
+                                    <th>النتيجة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${studentsList.length === 0 ? `<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--text-light)">لا يوجد طلاب لهذا البرنامج والصف</td></tr>` :
+                                studentsList.map((s, idx) => {
+                                    let fullName = s.fullName || ((s.firstName||'') + ' ' + (s.lastName||'')).trim() || '-';
+                                    let res = computeStudentAssessmentResult(s.id, a);
+                                    let finalClass = res.finalLabel === 'دور ثان' ? 'badge-danger' : (res.finalLabel === 'غياب' || res.finalLabel === 'غياب بعذر' ? 'badge-warning' : 'badge-success');
+                                    return `<tr>
+                                        <td>${idx + 1}</td>
+                                        <td><strong>${fullName}</strong></td>
+                                        <td>${s.code || '-'}</td>
+                                        <td><span class="badge ${res.o1.class}">${res.o1.text}</span></td>
+                                        <td><span class="badge ${res.o2.class}">${res.o2.text}</span></td>
+                                        <td><span class="badge ${res.o3.class}">${res.o3.text}</span></td>
+                                        <td><span class="badge ${finalClass}">${res.finalLabel}</span></td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function printAssessmentTable(){
+        let area = document.getElementById('assessmentPrintArea');
+        if(!area){ showAlert('لا توجد بيانات للطباعة', 'warning'); return; }
+        let a = assessments.find(x => x.id == currentAssessmentViewId);
+        let title = a ? `جدول تقييم - ${a.specialty} - ${a.unitName}` : 'جدول التقييمات';
+        let printWindow = window.open('', '_blank');
+        if(!printWindow){ showAlert('يرجى السماح بالنوافذ المنبثقة للطباعة', 'warning'); return; }
+        let today = new Date().toLocaleDateString('ar-EG', {year:'numeric', month:'long', day:'numeric'});
+        printWindow.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>${title}</title>
+            <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+            <style>
+                *{box-sizing:border-box;margin:0;padding:0}
+                body{font-family:'Cairo',sans-serif;padding:1.5rem;background:#fff;color:#1e293b}
+                .print-header{text-align:center;border-bottom:3px solid #1e3a8a;padding-bottom:.8rem;margin-bottom:1rem}
+                .print-header h1{color:#1e3a8a;font-size:1.2rem}
+                .print-header p{color:#64748b;font-size:.8rem;margin-top:.3rem}
+                table{width:100%;border-collapse:collapse;font-size:.75rem}
+                th{background:#f0f4f8;padding:.5rem .6rem;border:1px solid #e2e8f0;text-align:right;font-weight:700;color:#1e3a8a}
+                td{padding:.4rem .6rem;border:1px solid #e2e8f0}
+                .badge{display:inline-block;padding:.1rem .4rem;border-radius:10px;font-size:.65rem;font-weight:700}
+                .badge-success{background:#dcfce7;color:#16a34a}
+                .badge-danger{background:#fee2e2;color:#dc2626}
+                .badge-warning{background:#fef3c7;color:#b45309}
+                .badge-info{background:#e0f2fe;color:#0891b2}
+                .print-footer{margin-top:1.5rem;text-align:center;font-size:.65rem;color:#94a3b8;border-top:1px dashed #e2e8f0;padding-top:.6rem}
+                @media print{body{padding:.8rem}}
+            </style></head><body>
+            <div class="print-header">
+                <h1>${title}</h1>
+                <p>${currentUser.admin || ''} — ${currentUser.school || ''} | ${today}</p>
+                ${a ? `<p>الوحدة: ${a.unitName || ''} | المخرج: ${a.outputNumber || ''} (${a.outputType || ''}) | الصف: ${a.grade || ''}</p>` : ''}
+            </div>
+            ${document.getElementById('assessmentDetailTable') ? document.getElementById('assessmentDetailTable').outerHTML : ''}
+            <div class="print-footer">تم إنشاء هذا الجدول بواسطة نظام شؤون الطلبة — جداول التقييمات</div>
+            </body></html>`);
+        printWindow.document.close();
+        printWindow.onload = function(){ printWindow.focus(); printWindow.print(); };
+        setTimeout(()=>{ try{ printWindow.focus(); printWindow.print(); }catch(e){} }, 600);
+    }
+    
+    function exportAssessmentToExcel(){
+        let a = assessments.find(x => x.id == currentAssessmentViewId);
+        if(!a){ showAlert('لا يوجد جدول محدد', 'warning'); return; }
+        let studentsList = getFilteredStudents().filter(s => s.specialty === a.specialty && s.grade === a.grade);
+        if(studentsList.length === 0){ showAlert('لا يوجد طلاب للتصدير', 'warning'); return; }
+        
+        let data = [['#', 'اسم الطالب', 'كود الطالب', 'الفرصة الأولى ('+(a.date1||'')+')', 'الفرصة الثانية ('+(a.date2||'')+')', 'الفرصة الثالثة ('+(a.date3||'')+')', 'النتيجة']];
+        studentsList.forEach((s, idx) => {
+            let fullName = s.fullName || ((s.firstName||'') + ' ' + (s.lastName||'')).trim() || '-';
+            let res = computeStudentAssessmentResult(s.id, a);
+            data.push([idx+1, fullName, s.code||'', res.o1.text, res.o2.text, res.o3.text, res.finalLabel]);
+        });
+        let ws = XLSX.utils.aoa_to_sheet(data);
+        let wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'جدول التقييم');
+        ws['!cols'] = [{wch:5},{wch:25},{wch:12},{wch:18},{wch:18},{wch:18},{wch:12}];
+        let safeName = (a.specialty||'تقييم').substring(0,20).replace(/[\/\\?%*:|"]/g,'_');
+        XLSX.writeFile(wb, `جدول_تقييم_${safeName}_${a.outputNumber||''}.xlsx`);
+        showAlert('تم تصدير جدول التقييم بنجاح', 'success');
+    }
+    
     // ======== دوال التنبيهات ========
     function showAlert(message,type='info'){
         let container=document.getElementById('alertContainer');
@@ -3304,6 +3827,7 @@
     document.getElementById('userModal').addEventListener('click', function(e){ if(e.target===this) closeModal('userModal'); });
     document.getElementById('studentCardModal').addEventListener('click', function(e){ if(e.target===this) closeModal('studentCardModal'); });
     document.getElementById('interviewModal').addEventListener('click', function(e){ if(e.target===this) closeModal('interviewModal'); });
+    document.getElementById('assessmentModal').addEventListener('click', function(e){ if(e.target===this) closeModal('assessmentModal'); });
     document.getElementById('loginPass').addEventListener('keypress', function(e){ if(e.key==='Enter') loginWithFirebase(); });
     
     console.log('✅ النظام جاهز للعمل مع Firebase!');
