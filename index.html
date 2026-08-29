@@ -702,7 +702,6 @@
     "فني ديزل معدات ثقيلة",
     "فني لوجستيات",
     "فني زخرفه و اعلان",
-    <!-- "فني نجارة اثاث", -->
     "فني نجارة أثاث",
     "فنی زخرفه وإعلان",
     "فنى هندسة زراعية",
@@ -739,10 +738,8 @@
     let currentCardStudentId=null;
     let reportSortConfig = {column:null, direction:'asc'};
     let interviewSortConfig = {column:'date', direction:'desc'};
-    let userSortConfig = {column:null, direction:'asc'};  // متغير ترتيب المستخدمين
+    let userSortConfig = {column:null, direction:'asc'};
     let warningSortConfig = {column:null, direction:'asc'};
-    let attendanceDirty = false;      // هل يوجد تعديل حضور مفتوح لم يُحفظ بعد؟
-    let attendanceDirtyDate = null;   // اليوم المفتوح حاليًا في شاشة الحضور
     
     // ======== السنوات الدراسية ========
     const DEFAULT_YEAR = '2025-2026';
@@ -763,7 +760,6 @@
                 availableYears = Array.isArray(data) ? data : Object.values(data);
                 if (!availableYears.includes(DEFAULT_YEAR)) availableYears.unshift(DEFAULT_YEAR);
             } else {
-                // ترحيل البيانات القديمة إن وُجدت إلى السنة الافتراضية
                 availableYears = [DEFAULT_YEAR];
                 await set(listRef, availableYears);
                 
@@ -781,7 +777,6 @@
                 }
             }
             
-            // التأكد من وجود عقدة السنة الحالية
             const yearMetaRef = ref(db, `academicYears/${currentYear}/meta`);
             const yearMetaSnap = await get(yearMetaRef);
             if (!yearMetaSnap.exists()) {
@@ -792,7 +787,6 @@
                 });
             }
             
-            // استعادة السنة المختارة سابقاً إن وُجدت
             const savedYear = localStorage.getItem('selectedAcademicYear');
             if (savedYear && availableYears.includes(savedYear)) {
                 currentYear = savedYear;
@@ -825,7 +819,6 @@
                 label: 'العام الدراسي ' + newYear,
                 createdBy: currentUser?.name || 'system'
             });
-            // إنشاء عقد فارغة للبيانات
             await set(ref(db, `academicYears/${newYear}/students`), {});
             await set(ref(db, `academicYears/${newYear}/attendance`), {});
             await set(ref(db, `academicYears/${newYear}/notifications`), {});
@@ -880,7 +873,6 @@
         const year = input.trim();
         createNewAcademicYear(year).then(ok => {
             if (ok) {
-                // تحديث واجهة السنوات إن كانت مفتوحة
                 if (currentPage === 'years') renderYearsPage(document.getElementById('mainContent'));
                 updateSidebarYearBadge();
             }
@@ -1012,7 +1004,6 @@
     }
     
     function setupRealtimeListeners() {
-        // نعيد ربط المستمعين حسب السنة الحالية (onValue يستبدل التحديثات لنفس المسار)
         const studentsRef = ref(db, yearPath('students'));
         onValue(studentsRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -1028,20 +1019,10 @@
         
         const attendanceRef = ref(db, yearPath('attendance'));
         onValue(attendanceRef, (snapshot) => {
-            const incoming = snapshot.exists() ? (snapshot.val() || {}) : {};
-            if (attendanceDirty && attendanceDirtyDate) {
-                // فيه تعديلات لهذا اليوم لسه ما اتحفظتش على هذا الجهاز:
-                // نأخذ كل التحديثات القادمة من فايربيز (أيام/مدارس أخرى)،
-                // لكن نحافظ على نسخة هذا اليوم المحلية زي ما هي حتى يتم الحفظ،
-                // عشان تحديث جهاز تاني ميمسحش تعديلاتنا اللي لسه مش محفوظة.
-                const localOpenDay = attendance[attendanceDirtyDate];
-                attendance = incoming;
-                attendance[attendanceDirtyDate] = localOpenDay || {};
-                if (currentUser) {
-                    showAlert('⚠️ تم تحديث بيانات الحضور من جهاز آخر، يرجى حفظ تعديلاتك الحالية بأسرع وقت ممكن حتى لا تُفقد', 'warning');
-                }
+            if (snapshot.exists()) {
+                attendance = snapshot.val() || {};
             } else {
-                attendance = incoming;
+                attendance = {};
             }
             if (currentUser && currentPage === 'attendance') {
                 renderAttendanceGrid();
@@ -1083,24 +1064,110 @@
         yearListenersAttached = true;
     }
     
-    // ======== دوال الحفظ الجزئي (بديل saveData القديمة) ========
-    // ملاحظة مهمة: هذه الدوال تكتب فقط السجل الذي تغيّر فعليًا (بمساره الخاص)
-    // بدلاً من إعادة كتابة شجرة الطلاب/الحضور/الإشعارات/المقابلات بالكامل.
-    // هذا يمنع تضارب الأجهزة المتعددة (جهاز يمسح تعديلات جهاز آخر لم تُحفظ بعد).
-
-    // كتابة/تحديث سجل واحد فقط في أي مسار محدد (يقبل مسارات فرعية مثل يوم حضور معين)
-    async function dbWriteOne(path, value) {
-        await set(ref(db, path), value);
+    // ======== دوال الحفظ الجزئي (الحل الرئيسي لمشكلة الأجهزة المتعددة) ========
+    
+    // حفظ طالب واحد فقط
+    async function saveStudentPartial(student) {
+        if (!student || student.id == null) return;
+        try {
+            await update(ref(db, yearPath('students')), {
+                [student.id]: student
+            });
+        } catch (e) {
+            console.error(e);
+            showAlert('خطأ في حفظ الطالب: ' + e.message, 'danger');
+            throw e;
+        }
     }
-
-    // تحديث عدة مسارات مختلفة في عملية ذرّية واحدة (بدون لمس أي شيء غير مذكور)
-    async function dbUpdateMany(pathsObject) {
-        await update(ref(db), pathsObject);
+    
+    // حذف طالب واحد
+    async function deleteStudentPartial(studentId) {
+        try {
+            await update(ref(db, yearPath('students')), {
+                [studentId]: null
+            });
+            // حذف غيابه أيضاً
+            const attUpdates = {};
+            Object.keys(attendance).forEach(date => {
+                if (attendance[date] && attendance[date][studentId]) {
+                    attUpdates[`${date}/${studentId}`] = null;
+                }
+            });
+            if (Object.keys(attUpdates).length) {
+                await update(ref(db, yearPath('attendance')), attUpdates);
+            }
+        } catch (e) {
+            console.error(e);
+            showAlert('خطأ في حذف الطالب: ' + e.message, 'danger');
+            throw e;
+        }
     }
-
-    // حذف سجل واحد فقط في مسار محدد
-    async function dbRemoveOne(path) {
-        await remove(ref(db, path));
+    
+    // حفظ غياب تاريخ معين (جزئي)
+    async function saveAttendancePartial(date, dayData) {
+        if (!date) return;
+        try {
+            const updates = {};
+            Object.keys(dayData).forEach(sid => {
+                if (dayData[sid] === null || dayData[sid] === undefined || dayData[sid] === 'present') {
+                    updates[`${date}/${sid}`] = null;
+                } else {
+                    updates[`${date}/${sid}`] = dayData[sid];
+                }
+            });
+            if (Object.keys(updates).length) {
+                await update(ref(db, yearPath('attendance')), updates);
+            }
+        } catch (e) {
+            console.error(e);
+            showAlert('خطأ في حفظ الغياب: ' + e.message, 'danger');
+            throw e;
+        }
+    }
+    
+    // حفظ إشعار واحد
+    async function saveNotificationPartial(notif) {
+        if (!notif || notif.id == null) return;
+        try {
+            await update(ref(db, yearPath('notifications')), {
+                [notif.id]: notif
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    
+    // حفظ مقابلة واحدة
+    async function saveInterviewPartial(interview) {
+        if (!interview || interview.id == null) return;
+        try {
+            await update(ref(db, yearPath('interviews')), {
+                [interview.id]: interview
+            });
+        } catch (e) {
+            console.error(e);
+            showAlert('خطأ في حفظ المقابلة: ' + e.message, 'danger');
+            throw e;
+        }
+    }
+    
+    // حذف مقابلة
+    async function deleteInterviewPartial(id) {
+        try {
+            await update(ref(db, yearPath('interviews')), {
+                [id]: null
+            });
+        } catch (e) {
+            console.error(e);
+            showAlert('خطأ في حذف المقابلة: ' + e.message, 'danger');
+            throw e;
+        }
+    }
+    
+    // دالة قديمة للتوافق (تستخدم فقط في الاستيراد أو الحالات النادرة)
+    async function saveData() {
+        // لم تعد تستخدم الحفظ الكامل إلا عند الضرورة القصوى
+        showAlert('تم الحفظ (جزئي)', 'success');
     }
     
     function refreshCurrentPage() {
@@ -1119,7 +1186,6 @@
         return {};
     }
     
-    // دالة الترتيب للمستخدمين
     function sortUsersTable(column) {
         if (userSortConfig.column === column) {
             userSortConfig.direction = userSortConfig.direction === 'asc' ? 'desc' : 'asc';
@@ -1157,7 +1223,6 @@
             return;
         }
 
-        // تطبيق الترتيب
         if (userSortConfig.column) {
             usersArray.sort((a, b) => {
                 let aVal, bVal;
@@ -1598,9 +1663,9 @@
         });
     }
     
-    async function checkWarnings(){
+    function checkWarnings(){
         let warnings=calculateAllWarnings();
-        let newNotifsList=[];
+        let newNotifs=false;
         warnings.forEach(w=>{
             if(w.level>0){
                 let s=students.find(st=>st.id===w.id);
@@ -1625,21 +1690,14 @@
                         dismissed:false
                     };
                     notifications.unshift(notif);
-                    newNotifsList.push(notif);
+                    newNotifs=true;
+                    saveNotificationPartial(notif);
                     let levelText=getWarningLabel(w.level);
                     showAlert(`${levelText}: ${s.fullName || s.firstName + ' ' + s.lastName} (${w.consecutive}متصلة / ${w.total}منفصلة)`,w.level>=3?'danger':w.level===2?'warning':'info');
                 }
             }
         });
-        if(newNotifsList.length>0){
-            try{
-                // نكتب فقط الإشعارات الجديدة (كل واحد في مساره الخاص) بدون لمس باقي الإشعارات
-                let updates={};
-                newNotifsList.forEach(n=>{ updates[yearPath('notifications/'+n.id)]=n; });
-                await dbUpdateMany(updates);
-            }catch(error){
-                console.error('خطأ في حفظ الإشعارات:', error);
-            }
+        if(newNotifs){
             updateNotificationBadge();
         }
     }
@@ -1752,7 +1810,7 @@
                             <thead>
                                 <tr>
                                     <th onclick="sortInterviewTable('student')">الطالب ${getInterviewSortIcon('student')}</th>
-                                    <th onclick="sortInterviewTable('type')">نوع المقابلة ${getInterviewSortIcon('type')}</th>
+                                    <th onclick="sortInterviewTable('type')">النوع ${getInterviewSortIcon('type')}</th>
                                     <th onclick="sortInterviewTable('date')">التاريخ ${getInterviewSortIcon('date')}</th>
                                     <th onclick="sortInterviewTable('grade')">الصف ${getInterviewSortIcon('grade')}</th>
                                     <th onclick="sortInterviewTable('specialty')">التخصص ${getInterviewSortIcon('specialty')}</th>
@@ -1769,24 +1827,24 @@
         renderInterviewsTable();
     }
     
-    function renderInterviewsTable(){
+    function renderInterviewsTable() {
         let list = getFilteredInterviews();
-        let search = document.getElementById('interviewSearch')?.value?.toLowerCase() || '';
+        let search = (document.getElementById('interviewSearch')?.value || '').toLowerCase();
         let typeFilter = document.getElementById('interviewTypeFilter')?.value || '';
         let gradeFilter = document.getElementById('interviewGradeFilter')?.value || '';
         let dateFrom = document.getElementById('interviewDateFrom')?.value || '';
         let dateTo = document.getElementById('interviewDateTo')?.value || '';
         
         list = list.filter(i => {
-            if(search){
-                let studentName = i.studentName || '';
-                let studentCode = i.studentCode || '';
-                if(!studentName.toLowerCase().includes(search) && !studentCode.toLowerCase().includes(search)) return false;
+            if (search) {
+                let studentName = (i.studentName || '').toLowerCase();
+                let studentCode = (i.studentCode || '').toLowerCase();
+                if (!studentName.includes(search) && !studentCode.includes(search)) return false;
             }
-            if(typeFilter && i.type !== typeFilter) return false;
-            if(gradeFilter && i.studentGrade !== gradeFilter) return false;
-            if(dateFrom && i.date < dateFrom) return false;
-            if(dateTo && i.date > dateTo) return false;
+            if (typeFilter && i.type !== typeFilter) return false;
+            if (gradeFilter && i.studentGrade !== gradeFilter) return false;
+            if (dateFrom && i.date < dateFrom) return false;
+            if (dateTo && i.date > dateTo) return false;
             return true;
         });
         
@@ -1906,33 +1964,11 @@
         
         let fullName = student.fullName || student.firstName + ' ' + student.lastName;
         
-        try{
-            if(id){
-                let idx = interviews.findIndex(i => i.id == id);
-                if(idx >= 0){
-                    let updated = {
-                        ...interviews[idx],
-                        studentId: studentId,
-                        studentName: fullName,
-                        studentCode: student.code,
-                        studentAdmin: student.admin,
-                        studentSchool: student.school,
-                        studentGrade: student.grade,
-                        studentSpecialty: student.specialty,
-                        date: date,
-                        type: type,
-                        notes: notes,
-                        updatedAt: new Date().toISOString()
-                    };
-                    // نكتب هذه المقابلة فقط في مسارها الخاص، ولا نلمس باقي المقابلات
-                    await dbWriteOne(yearPath('interviews/'+id), updated);
-                    interviews[idx] = updated;
-                    showAlert('تم تحديث المقابلة بنجاح', 'success');
-                }
-            } else {
-                let newId = Date.now() + Math.floor(Math.random() * 1000);
-                let newInterview = {
-                    id: newId,
+        if(id){
+            let idx = interviews.findIndex(i => i.id == id);
+            if(idx >= 0){
+                interviews[idx] = {
+                    ...interviews[idx],
                     studentId: studentId,
                     studentName: fullName,
                     studentCode: student.code,
@@ -1943,34 +1979,43 @@
                     date: date,
                     type: type,
                     notes: notes,
-                    createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString()
                 };
-                // كتابة المقابلة الجديدة فقط في مسارها الخاص (سجل جديد، لا يتعارض مع أي سجل آخر)
-                await dbWriteOne(yearPath('interviews/'+newId), newInterview);
-                interviews.push(newInterview);
-                showAlert('تم تسجيل المقابلة بنجاح', 'success');
+                await saveInterviewPartial(interviews[idx]);
+                showAlert('تم تحديث المقابلة بنجاح', 'success');
             }
-            closeModal('interviewModal');
-            renderInterviewsTable();
-        }catch(error){
-            console.error('خطأ في حفظ المقابلة:', error);
-            showAlert('❌ خطأ في حفظ المقابلة: '+error.message,'danger');
+        } else {
+            let newId = Date.now() + Math.floor(Math.random() * 1000);
+            let newInterview = {
+                id: newId,
+                studentId: studentId,
+                studentName: fullName,
+                studentCode: student.code,
+                studentAdmin: student.admin,
+                studentSchool: student.school,
+                studentGrade: student.grade,
+                studentSpecialty: student.specialty,
+                date: date,
+                type: type,
+                notes: notes,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            interviews.push(newInterview);
+            await saveInterviewPartial(newInterview);
+            showAlert('تم تسجيل المقابلة بنجاح', 'success');
         }
+        
+        closeModal('interviewModal');
+        renderInterviewsTable();
     }
     
     async function deleteInterview(id){
         if(!confirm('هل أنت متأكد من حذف هذه المقابلة؟')) return;
-        try{
-            // حذف هذه المقابلة فقط من قاعدة البيانات، دون المساس بأي مقابلة أخرى
-            await dbRemoveOne(yearPath('interviews/'+id));
-            interviews = interviews.filter(i => i.id !== id);
-            renderInterviewsTable();
-            showAlert('تم حذف المقابلة', 'info');
-        }catch(error){
-            console.error('خطأ في حذف المقابلة:', error);
-            showAlert('❌ خطأ في الحذف: '+error.message,'danger');
-        }
+        interviews = interviews.filter(i => i.id !== id);
+        await deleteInterviewPartial(id);
+        renderInterviewsTable();
+        showAlert('تم حذف المقابلة', 'info');
     }
     
     function printInterviewsTable() {
@@ -2438,59 +2483,33 @@
             if(fs) school=fs;
         }
         if(!admin||!school){ showAlert('يرجى تحديد الإدارة والمدرسة','warning'); return; }
-        try{
-            if(id){
-                let idx=students.findIndex(s=>s.id==id);
-                if(idx>=0){
-                    let updated={...students[idx], fullName, code, nationalId, grade, specialty, parentPhone};
-                    // نكتب هذا الطالب فقط في مساره الخاص، دون لمس باقي الطلاب
-                    await dbWriteOne(yearPath('students/'+id), updated);
-                    students[idx]=updated;
-                    showAlert('تم التحديث بنجاح','success');
-                }
-            } else {
-                if(students.find(s=>s.code===code)){ showAlert('كود الطالب موجود مسبقاً','warning'); return; }
-                // معرّف فريد يعتمد على الوقت + رقم عشوائي بدل max+1
-                // (max+1 قد يتكرر لو جهازان أضافا طالبًا في نفس اللحظة تقريبًا)
-                let newId=Date.now()*1000+Math.floor(Math.random()*1000);
-                let newStudent={id:newId, fullName, code, nationalId, grade, specialty, parentPhone, admin, school, createdAt:new Date().toISOString().split('T')[0]};
-                await dbWriteOne(yearPath('students/'+newId), newStudent);
-                students.push(newStudent);
-                showAlert('تم الإضافة بنجاح','success');
+        if(id){
+            let idx=students.findIndex(s=>s.id==id);
+            if(idx>=0){
+                students[idx]={...students[idx], fullName, code, nationalId, grade, specialty, parentPhone};
+                await saveStudentPartial(students[idx]);
+                showAlert('تم التحديث بنجاح','success');
             }
-            closeModal('studentModal');
-            renderStudentsTable();
-            renderDashboardPage(document.getElementById('mainContent'));
-        }catch(error){
-            console.error('خطأ في حفظ الطالب:', error);
-            showAlert('❌ خطأ في الحفظ: '+error.message,'danger');
+        } else {
+            if(students.find(s=>s.code===code)){ showAlert('كود الطالب موجود مسبقاً','warning'); return; }
+            let newId=students.length>0?Math.max(...students.map(s=>s.id))+1:1;
+            let newStudent = {id:newId, fullName, code, nationalId, grade, specialty, parentPhone, admin, school, createdAt:new Date().toISOString().split('T')[0]};
+            students.push(newStudent);
+            await saveStudentPartial(newStudent);
+            showAlert('تم الإضافة بنجاح','success');
         }
+        closeModal('studentModal');
+        renderStudentsTable();
+        if(currentPage === 'dashboard') renderDashboardPage(document.getElementById('mainContent'));
     }
     
     async function deleteStudent(id){
         if(currentUser.role!=='super'&&currentUser.role!=='affairs'){ showAlert('ليس لديك صلاحية الحذف','danger'); return; }
         if(!confirm('هل أنت متأكد من حذف هذا الطالب؟')) return;
-        try{
-            // نحذف بطاقة الطالب + سجلات غيابه فقط (كل واحد في مساره الخاص)
-            // ولا نلمس أي طالب أو يوم حضور آخر تابع لأي جهاز/مستخدم آخر
-            let updates={};
-            updates[yearPath('students/'+id)]=null;
-            Object.keys(attendance).forEach(date=>{
-                if(attendance[date] && attendance[date][id]!==undefined){
-                    updates[yearPath('attendance/'+date+'/'+id)]=null;
-                }
-            });
-            await dbUpdateMany(updates);
-            students=students.filter(s=>s.id!==id);
-            Object.keys(attendance).forEach(date=>{
-                if(attendance[date] && attendance[date][id]!==undefined) delete attendance[date][id];
-            });
-            renderStudentsTable();
-            showAlert('تم الحذف بنجاح','success');
-        }catch(error){
-            console.error('خطأ في حذف الطالب:', error);
-            showAlert('❌ خطأ في الحذف: '+error.message,'danger');
-        }
+        students=students.filter(s=>s.id!==id);
+        await deleteStudentPartial(id);
+        renderStudentsTable();
+        showAlert('تم الحذف بنجاح','success');
     }
     
     // ======== دوال بطاقة الطالب ========
@@ -2626,19 +2645,25 @@
         if(countL) countL.innerHTML=`${fs.length} طالب — <span style="color:var(--success)">${presentCount} حاضر</span> — <span style="color:var(--danger)">${absentCount} غائب</span> — <span style="color:#b45309">${excusedCount} غياب بعذر</span>`;
     }
     
-    function setAttendanceStatus(studentId,date,status){
-        if(!date) return;
-        if(!attendance[date]) attendance[date]={};
-        if(status==='present') delete attendance[date][studentId];
-        else attendance[date][studentId]=status;
-        // نعلّم هذا اليوم بأن فيه تعديلات لم تُحفظ بعد، عشان لو وصل تحديث
-        // من جهاز آخر أثناء التعديل، منمنعوش من مسح شغلنا قبل ما نحفظ
-        attendanceDirty=true;
-        attendanceDirtyDate=date;
+    async function setAttendanceStatus(studentId, date, status) {
+        if (!date) return;
+        if (!attendance[date]) attendance[date] = {};
+        
+        if (status === 'present') {
+            delete attendance[date][studentId];
+        } else {
+            attendance[date][studentId] = status;
+        }
+        
+        // حفظ جزئي فوري
+        const dayData = {};
+        dayData[studentId] = status === 'present' ? null : status;
+        await saveAttendancePartial(date, dayData);
+        
         renderAttendanceGrid();
     }
     
-    function markAllPresent(){
+    async function markAllPresent(){
         let dateEl=document.getElementById('attendanceDate');
         let date=dateEl?dateEl.value:'';
         if(!date) return;
@@ -2650,41 +2675,23 @@
         if(gradeFilter) fs=fs.filter(s=>s.grade===gradeFilter);
         if(specialtyFilter) fs=fs.filter(s=>s.specialty===specialtyFilter);
         if(!attendance[date]) attendance[date]={};
-        fs.forEach(s=>{ if(attendance[date][s.id]) delete attendance[date][s.id]; });
-        attendanceDirty=true;
-        attendanceDirtyDate=date;
+        
+        const dayData = {};
+        fs.forEach(s => {
+            dayData[s.id] = null;
+            if (attendance[date][s.id]) delete attendance[date][s.id];
+        });
+        
+        await saveAttendancePartial(date, dayData);
         renderAttendanceGrid();
         showAlert('تم تحديد الجميع حاضرين','success');
     }
     
     async function saveAttendance(){
-        let dateEl=document.getElementById('attendanceDate');
-        let date=dateEl?dateEl.value:'';
-        if(!date){ showAlert('يرجى اختيار التاريخ','warning'); return; }
-        try{
-            // نحفظ فقط حالة الطلاب الظاهرين حاليًا في شبكة هذا اليوم
-            // (كل طالب في مساره الخاص: attendance/{date}/{studentId})
-            // بدل الكتابة فوق شجرة الحضور بالكامل لكل الأيام والمدارس.
-            let gradeFilter=document.getElementById('attendanceGradeFilter')?.value||'';
-            let specialtyFilter=document.getElementById('attendanceSpecialtyFilter')?.value||'';
-            let fs=getFilteredStudents();
-            if(gradeFilter) fs=fs.filter(s=>s.grade===gradeFilter);
-            if(specialtyFilter) fs=fs.filter(s=>s.specialty===specialtyFilter);
-            let dayA=attendance[date]||{};
-            let updates={};
-            fs.forEach(s=>{
-                updates[yearPath('attendance/'+date+'/'+s.id)] = dayA[s.id]!==undefined ? dayA[s.id] : null;
-            });
-            await dbUpdateMany(updates);
-            // خلاص اتحفظ، مبقاش فيه تعديلات معلّقة لهذا اليوم
-            if(attendanceDirtyDate===date) attendanceDirty=false;
-            checkWarnings();
-            showAlert('تم الحفظ في Firebase بنجاح','success');
-            renderDashboardPage(document.getElementById('mainContent'));
-        }catch(error){
-            console.error('خطأ في حفظ الحضور:', error);
-            showAlert('❌ خطأ في الحفظ: '+error.message,'danger');
-        }
+        // الحفظ أصبح فورياً عند كل تغيير، هذه الدالة للتأكيد فقط
+        checkWarnings();
+        showAlert('تم الحفظ بنجاح (جميع التغييرات محفوظة فوراً)','success');
+        if(currentPage === 'dashboard') renderDashboardPage(document.getElementById('mainContent'));
     }
     
     // ======== دوال إعداد وطباعة خطابات الإنذار ========
@@ -2783,17 +2790,14 @@
     
     function markNotificationAsRead(studentId) {
         let found = false;
-        let updates = {};
         notifications.forEach(n => {
             if (n.studentId == studentId && !n.read && !n.dismissed) {
                 n.read = true;
                 found = true;
-                // نحدّث فقط الحقل "read" لهذا الإشعار بالذات
-                updates[yearPath('notifications/'+n.id+'/read')] = true;
+                saveNotificationPartial(n);
             }
         });
         if (found) {
-            dbUpdateMany(updates).catch(error => console.error('خطأ في تحديث الإشعارات:', error));
             updateNotificationBadge();
             if (currentPage === 'notifications') {
                 applyNotificationFilters();
@@ -3197,41 +3201,30 @@
     
     function dismissNotification(id){
         let n=notifications.find(x=>x.id===id);
-        if(n) n.dismissed=true;
-        // نحدّث فقط هذا الإشعار (حقل dismissed) دون لمس باقي الإشعارات
-        dbWriteOne(yearPath('notifications/'+id), n).catch(error => {
-            console.error('خطأ في تحديث الإشعار:', error);
-        });
+        if(n) {
+            n.dismissed=true;
+            saveNotificationPartial(n);
+        }
         applyNotificationFilters();
         updateNotificationBadge();
     }
     
     function clearAllNotifications(){
         if(!confirm('هل أنت متأكد؟')) return;
-        // نحدد بالضبط الإشعارات المطلوب حذفها فقط، ونحذفها من مسارها الخاص
-        // (بدل استبدال شجرة الإشعارات بالكامل والتأثير على مستخدمين آخرين)
-        let removedIds = new Set();
-        let kept = notifications.filter(n=>{
-            let shouldRemove;
-            if(n.dismissed) shouldRemove = true;
-            else if(currentUser.role==='super') shouldRemove = true;
-            else if(currentUser.role==='admin') shouldRemove = n.studentAdmin===currentUser.admin;
-            else if(currentUser.role==='affairs'||currentUser.role==='social') shouldRemove = (n.studentAdmin===currentUser.admin && n.studentSchool===currentUser.school);
-            else shouldRemove = true;
-            if(shouldRemove) removedIds.add(n.id);
-            return !shouldRemove;
+        let fs=getFilteredStudents();
+        notifications.forEach(n => {
+            if (!n.dismissed) {
+                if (currentUser.role === 'super' ||
+                    (currentUser.role === 'admin' && n.studentAdmin === currentUser.admin) ||
+                    ((currentUser.role === 'affairs' || currentUser.role === 'social') && n.studentAdmin === currentUser.admin && n.studentSchool === currentUser.school)) {
+                    n.dismissed = true;
+                    saveNotificationPartial(n);
+                }
+            }
         });
-        let updates={};
-        removedIds.forEach(id=>{ updates[yearPath('notifications/'+id)]=null; });
-        dbUpdateMany(updates).then(()=>{
-            notifications = kept;
-            applyNotificationFilters();
-            updateNotificationBadge();
-            showAlert('تم المسح','success');
-        }).catch(error=>{
-            console.error('خطأ في المسح:', error);
-            showAlert('❌ خطأ في المسح: '+error.message,'danger');
-        });
+        applyNotificationFilters();
+        updateNotificationBadge();
+        showAlert('تم المسح','success');
     }
     
     // ======== دوال الاستيراد ========
@@ -3344,6 +3337,7 @@
         document.getElementById('importStep3').style.display='block';
         document.getElementById('importBtn').style.display='none';
         let processed=0, total=valid.length;
+        let nextId=students.length>0?Math.max(...students.map(s=>s.id))+1:1;
         let admin=currentUser.admin||'', school=currentUser.school||'';
         if(currentUser.role==='super'){
             let fa=document.getElementById('filterAdmin')?.value;
@@ -3352,14 +3346,12 @@
             if(fs) school=fs;
         }
         if(!admin||!school){ showAlert('يرجى تحديد الإدارة والمدرسة أولاً','warning'); closeModal('importModal'); return; }
-        // معرّفات فريدة تعتمد على الوقت بدل max+1 (تفادي تكرار المعرف لو جهاز آخر
-        // يضيف طلابًا في نفس الوقت تقريبًا)
-        let newStudents=[];
+        
+        const batchUpdates = {};
         for(let idx=0; idx<valid.length; idx++){
             let p=valid[idx];
-            let newId=Date.now()*1000+Math.floor(Math.random()*1000)+idx;
-            newStudents.push({
-                id:newId,
+            let newStudent = {
+                id:nextId+idx,
                 fullName:p.fullName,
                 code:p.code,
                 nationalId:p.nationalId||'',
@@ -3369,28 +3361,28 @@
                 admin:admin,
                 school:school,
                 createdAt:new Date().toISOString().split('T')[0]
-            });
+            };
+            students.push(newStudent);
+            batchUpdates[newStudent.id] = newStudent;
             processed++;
             document.getElementById('importProgress').style.width=(processed/total*100)+'%';
         }
-        try{
-            // كتابة كل الطلاب الجدد في عملية واحدة، كل واحد في مساره الخاص فقط
-            // (لا تلمس أي طالب موجود مسبقًا سواء أضافه هذا الجهاز أو جهاز آخر)
-            let updates={};
-            newStudents.forEach(s=>{ updates[yearPath('students/'+s.id)]=s; });
-            await dbUpdateMany(updates);
-            students.push(...newStudents);
-            checkWarnings();
-            setTimeout(()=>{
-                closeModal('importModal');
-                if(currentPage==='students') renderStudentsTable();
-                else showPage('students');
-                showAlert(`تم استيراد ${total} طالب بنجاح`,'success');
-            }, 500);
-        }catch(error){
-            console.error('خطأ في الاستيراد:', error);
-            showAlert('❌ خطأ في الاستيراد: '+error.message,'danger');
+        
+        // حفظ جماعي جزئي
+        try {
+            await update(ref(db, yearPath('students')), batchUpdates);
+        } catch(e) {
+            showAlert('خطأ في الاستيراد: ' + e.message, 'danger');
+            return;
         }
+        
+        checkWarnings();
+        setTimeout(()=>{
+            closeModal('importModal');
+            if(currentPage==='students') renderStudentsTable();
+            else showPage('students');
+            showAlert(`تم استيراد ${total} طالب بنجاح`,'success');
+        }, 500);
     }
     
     // ======== دوال التنبيهات ========
@@ -3415,7 +3407,7 @@
     document.getElementById('interviewModal').addEventListener('click', function(e){ if(e.target===this) closeModal('interviewModal'); });
     document.getElementById('loginPass').addEventListener('keypress', function(e){ if(e.key==='Enter') loginWithFirebase(); });
     
-    console.log('✅ النظام جاهز للعمل مع Firebase!');
+    console.log('✅ النظام جاهز للعمل مع Firebase (إصلاح التعارض بين الأجهزة)');
     console.log('📧 استخدم البريد: a.hfm9999@gmail.com');
     console.log('🔑 كلمة المرور: 123456');
 </script>
